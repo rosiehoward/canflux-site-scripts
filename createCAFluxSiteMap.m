@@ -1,0 +1,759 @@
+% Static map for CanFlux meeting
+%
+% Rosie Howard
+% 2 October 2025
+
+%% extract data from TSV file
+clear;
+fpath = '/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux';
+fname = 'AmeriFlux-sites-CanadianORIGDOWNLOAD_19August2025.tsv';    % Ameriflux data
+fname_7Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet7Oct2025_edited.tsv';     % Ameriflux + self-reported
+fname_21Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet21Oct2025.tsv';     % Ameriflux + self-reported
+fname_Baldocchi = 'CanadianSites_Baldocchi2025.csv';
+
+fname_3Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet3Oct2025_withLatLons.tsv';   % only sites with LatLons
+
+% p = readtable(fullfile(fpath,fname), "FileType","text",'Delimiter', '\t');
+% t = readtable(fullfile(fpath,fname_7Oct2025), "FileType","text",'Delimiter', '\t');
+t = readtable(fullfile(fpath,fname_21Oct2025), "FileType","text",'Delimiter', '\t');
+% t = readtable(fullfile(fpath,fname_Baldocchi),'Delimiter', ',');
+
+addpath(genpath('/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux'));
+
+
+%% Canadian map of flux sites
+% Does not need spreadsheet loading first (lat/lons saved separately)
+% These will need updating as sites are added etc.
+
+addpath(genpath('/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux'));
+
+% load map outline
+figure(1)
+clf;
+set(gcf,'color','white');
+% worldmap("North America")
+% load coastlines;
+% plotm(coastlat, coastlon);
+
+% Example: Plot some cities as magenta diamonds
+% lat = [48.85 51.5]; % Latitude
+% lon = [2.35 -0.12]; % Longitude
+% geoscatter(lat, lon, [], "m", "d");
+
+min_lat = 40;
+max_lat = 85;
+min_lon = -165;
+max_lon = -45;
+
+% load shapefile
+% M = m_shaperead('geo_political_region_2');
+M_nolakes = m_shaperead('ne_10m_admin_0_countries');
+M = m_shaperead('ne_10m_admin_0_countries_lakes');
+
+
+% m_proj('oblique mercator','lon',[min(lon_subset) max(lon_subset)],'lat',[min(lat_subset) max(lat_subset)],'direction','vertical','aspect',.5);
+
+% this one for composite maps!
+m_proj('lambert','longitudes',[min_lon max_lon], ...
+           'latitudes',[min_lat max_lat]);%'direction','vertical','aspect',1);
+% m_proj('miller','longitudes',[min_lon max_lon], ...
+           % 'latitudes',[min_lat max_lat]);%'direction','vertical','aspect',1);
+
+% define some colours
+% RGB = [173 216 230]/256;
+RGB_lightblue = [235 256 256]/256;
+RGB_lightgrey = [240 240 240]/256;
+RGB_grey = [211 211 211]/256;
+
+blue = [57 106 177]./255;
+red = [204 37 41]./255;
+black = [83 81 84]./255;
+green = [62 150 81]./255;
+brown = [146 36 40]./255;
+purple = [107 76 154]./255;
+cl_colors = {blue, red, black, ...
+             green, brown, purple};
+cl_str_clr_names = ["blue", "red", "black", "green", "brown", "purple"];
+
+RGB = orderedcolors("gem");
+H = rgb2hex(RGB);
+
+% plot coastline
+m_coast('patch',RGB_lightgrey,'lineWidth',0.5,'edgecolor',RGB_grey);
+hold on
+% for k=1:length(M.ncst)
+%     m_line(M.ncst{k}(:,1),M.ncst{k}(:,2),'linewidth',0.2,'color',RGB_grey);
+% end
+% 
+% for k=1:length(M_nolakes.ncst)
+%     m_line(M_nolakes.ncst{k}(:,1),M_nolakes.ncst{k}(:,2),'linewidth',0.2,'color','k');
+% end
+
+m_grid;
+
+% m_elev('contourf',[0:100:6000]);
+% m_gshhs_h('patch',RGB_lightblue);
+% m_gshhs('hb1','color','k'); 
+% m_grid;
+% m_grid('box','fancy','tickdir','in');
+
+% load site lat/lons
+load("BaldocchiLatLons.mat");
+% load("siteLatLons.mat");    % old - not sustainable, to many steps to update, read directly from downloaded table instead :)
+
+[a,b] = size(t);
+ind = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+
+% Ameriflux sites
+for k = 1:ind-1
+    h1 = m_line(t.Longitude_degrees_(k),t.Latitude_degrees_(k),'marker','^','markersize',8,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
+end
+
+% non-Ameriflux sites
+for k = ind+1:a
+    h2 = m_line(t.Longitude_degrees_(k),t.Latitude_degrees_(k),'marker','o','markersize',8,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
+end
+
+n_Ameriflux = length(find(~isnan(t.Latitude_degrees_(1:ind-1))));
+n_nonAmeriflux = length(find(~isnan(t.Latitude_degrees_(ind+1:a))));
+
+set(h1,'linestyle','none')
+set(h2,'linestyle','none')
+legend([h1 h2],{['Registered on Ameriflux (' num2str(n_Ameriflux) ')'],['Other Sites (' num2str(n_nonAmeriflux) ')']},'FontSize',20)
+
+
+% Baldocchi data
+% for k = 1:length(BaldocchiLatLons)
+%     % m_line(siteLatLons(k,2),siteLatLons(k,1),'marker','^','markersize',8,'markeredgecolor','k','markerfacecolor','#ff1493');
+%     h1 = m_line(BaldocchiLatLons(k,2),BaldocchiLatLons(k,1),'marker','^','markersize',8,'markeredgecolor','k','markerfacecolor','blue','color',[0 0 0]);
+% end
+
+% OLD
+%Ameriflux/non-Ameriflux data
+% for k = 1:length(siteLatLons_Ameriflux)
+%     % m_line(siteLatLons(k,2),siteLatLons(k,1),'marker','^','markersize',8,'markeredgecolor','k','markerfacecolor','#ff1493');
+%     h1 = m_line(siteLatLons_Ameriflux(k,2),siteLatLons_Ameriflux(k,1),'marker','^','markersize',8,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
+% end
+% 
+% for k = 1:length(siteLatLons_nonAmeriflux)
+%     h2 = m_line(siteLatLons_nonAmeriflux(k,2),siteLatLons_nonAmeriflux(k,1),'marker','o','markersize',8,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
+% end
+
+%% For mapping by ecosystem: alternative way to load from spreadsheet table
+
+%**** Works with 21 October spreadsheet *********
+
+% load map outline
+figure(1)
+clf;
+set(gcf,'color','white');
+
+min_lat = 40;
+max_lat = 85;
+min_lon = -165;
+max_lon = -45;
+
+% load shapefile
+% M = m_shaperead('geo_political_region_2');
+M_nolakes = m_shaperead('ne_10m_admin_0_countries');
+M = m_shaperead('ne_10m_admin_0_countries_lakes');
+
+m_proj('lambert','longitudes',[min_lon max_lon], ...
+           'latitudes',[min_lat max_lat]);%'direction','vertical','aspect',1);
+
+% define some colours
+% RGB = [173 216 230]/256;
+RGB_lightblue = [235 256 256]/256;
+RGB_lightgrey = [240 240 240]/256;
+RGB_grey = [211 211 211]/256;
+
+blue = [57 106 177]./255;
+red = [204 37 41]./255;
+black = [83 81 84]./255;
+green = [62 150 81]./255;
+brown = [146 36 40]./255;
+purple = [107 76 154]./255;
+cl_colors = {blue, red, black, ...
+             green, brown, purple};
+cl_str_clr_names = ["blue", "red", "black", "green", "brown", "purple"];
+
+RGB = orderedcolors("gem");
+H = rgb2hex(RGB);
+
+% plot coastline
+m_coast('patch',RGB_lightgrey,'lineWidth',0.5,'edgecolor',RGB_grey);
+hold on
+m_grid;
+
+% define data
+SiteVegetation = t.VegetationDescription_IGBP_;    % Ameriflux + self-reported
+classes = unique(SiteVegetation);
+classes(cellfun(@isempty,classes)) = [];
+percentVeg = NaN(length(classes),1);
+classShort = cell(length(classes),1);
+% extra = {'Water Bodies: Oceans, seas, lakes, reservoirs, and rivers. Can be either fresh or salt- water bodies.'};
+
+for i = 1:length(classes)
+    class = classes{i};
+    numPerClass = length(find(strcmp(class,SiteVegetation)));
+    percentVeg(i) = (numPerClass/length(SiteVegetation))*100;
+    % get shortened class name
+    tmp = split(classes{i},':');
+    classShort{i} = strcat(tmp{1},[' (' num2str(numPerClass) ')']);
+end
+
+% percentVeg_rounded = round(percentVeg);
+
+% T = table(percentVeg_rounded,classShort,mycolors);
+% T_sort = sortrows(T,1,'descend');
+
+for i = 1:length(classes)
+
+    eval(['isEco' num2str(i) ' = find(strcmp(t.VegetationDescription_IGBP_,classes{' num2str(i) '}));']); %#ok<*EVLSEQVAR>
+    eval(['Eco' num2str(i) '_LatLons = cat(2,t.Latitude_degrees_(isEco' num2str(i) '),t.Longitude_degrees_(isEco' num2str(i) '));']);
+
+end
+Ecos = {Eco1_LatLons,Eco2_LatLons,Eco3_LatLons,Eco4_LatLons,Eco5_LatLons,Eco6_LatLons,Eco7_LatLons,Eco8_LatLons,Eco9_LatLons};
+mycolors = ["#8C1A66", "#D966B3", "#78AB30", "#C7E0A3", "#5B731F", "#B9E67D", "#954535", "#C19A6B",'#005B96']';
+% myColors = ["#C7E0A3", "#C19A6B", "#D966B3", "#954535", "#5B731F", "#005B96", "#B9E67D", "#78AB30", "#8C1A66"]'; % sorted by number of sites
+markers = {'<','pentagram','^','v','square','diamond','>','o','hexagram'};
+
+% Ecosystem data
+for j = 1:length(Ecos)
+    for k = 1:length(Ecos{j})
+        % h(j) = m_line(Ecos{j}(k,2),Ecos{j}(k,1),'marker',markers{j},'markersize',10,'markeredgecolor','k','markerfacecolor',mycolors{j},'color',[0 0 0]);
+        h(j) = m_line(Ecos{j}(k,2),Ecos{j}(k,1),'marker','o','markersize',10,'markeredgecolor','k','markerfacecolor',mycolors{j},'color',[0 0 0]);
+    end
+end
+
+set(h,'linestyle','none')
+legend(h,classShort,'FontSize',14,'location','southwest')
+
+%% For mapping by flux measurements: CO2, CH4
+
+%**** Works with 21 October spreadsheet *********
+
+% load map outline
+figure(1)
+clf;
+set(gcf,'color','white');
+
+min_lat = 40;
+max_lat = 85;
+min_lon = -165;
+max_lon = -45;
+
+% load shapefile
+% M = m_shaperead('geo_political_region_2');
+M_nolakes = m_shaperead('ne_10m_admin_0_countries');
+M = m_shaperead('ne_10m_admin_0_countries_lakes');
+
+m_proj('lambert','longitudes',[min_lon max_lon], ...
+           'latitudes',[min_lat max_lat]);%'direction','vertical','aspect',1);
+
+% define some colours
+% RGB = [173 216 230]/256;
+RGB_lightblue = [235 256 256]/256;
+RGB_lightgrey = [240 240 240]/256;
+RGB_grey = [211 211 211]/256;
+
+% plot coastline
+m_coast('patch',RGB_lightgrey,'lineWidth',0.5,'edgecolor',RGB_grey);
+hold on
+m_grid;
+
+% define data
+allFluxes = t.FluxesMeasured;
+
+tmp = [];
+for i = 1:length(allFluxes)
+    tmp1 = strrep(allFluxes{i},' ','');
+    tmp2 = split(tmp1,',');
+    % tmp3 = split(tmp2,':');
+    tmp = [tmp; tmp2];
+end
+Fluxes = unique(tmp);
+
+
+
+CO2_str = 'CO2';
+FC_str = 'FC';
+CH4_str = 'CH4';
+FCH4_str = 'FCH4';
+H2O_str = 'H2O';
+O3_str = 'O3';
+
+ind_Flux_Any = find(~cellfun(@isempty,t.FluxesMeasured));   % sites with any flux measured
+
+% CO2
+ind_1 = contains(t.FluxesMeasured,CO2_str);   % indices of sites with flux named by CO2
+ind_2 = contains(t.FluxesMeasured,FC_str);     % indices of sites with flux named by FC
+ind_CO2 = ind_1 | ind_2;                % all indices with either 'CO2' or 'FC' denoting the flux
+numFC = sum(ind_CO2);                      % number of sites with CO2 measured
+
+% CH4
+ind_3 = contains(t.FluxesMeasured,CH4_str);   % indices of sites with flux named by CH4
+ind_4 = contains(t.FluxesMeasured,FCH4_str); % indices of sites with flux named by FCH4
+ind_CH4 = ind_3 | ind_4;              % all indices with either 'CH4' or 'FCH4' denoting the flux
+numFCH4 = sum(ind_CH4);                    % number of sites with CH4 measured
+
+% H2O
+ind_H2O = contains(t.FluxesMeasured,H2O_str);   % indices of sites with flux named by FH2O or H2O
+numFH2O = sum(ind_H2O);                         % number of sites with H2O measured
+
+%O3
+% so far all sites measuring O3 (=1) also measures FC, FCH4, H, LE
+ind_O3 = contains(t.FluxesMeasured,O3_str);   % indices of sites with flux named by FO3 or O3
+numFO3 = sum(ind_O3);                         % number of sites with O3 measured
+
+% find actual indices for each flux
+ind_array_CO2 = find(ind_CO2);             % array of actual indices for sites with CO2
+ind_array_CH4 = find(ind_CH4);             % array of actual indices for sites with CH4
+ind_array_H2O = find(ind_H2O);                    % array of actual indices for sites with H2O
+ind_array_O3 = find(ind_O3);                    % array of actual indices for sites with O3
+
+% find sites with ONLY CO2 and NOT CH4
+ind_CO2_only = []; 
+for i = 1:length(ind_array_CO2)
+    ind_val = ind_array_CO2(i);
+    if sum(ismember(ind_array_CH4,ind_val)) == 0
+        ind_CO2_only(i) = ind_val;
+    else
+        ind_CO2_only(i) = NaN;
+    end
+end
+numCO2_only = sum(~isnan(ind_CO2_only));
+ind_CO2_only = ind_CO2_only(~isnan(ind_CO2_only));
+ind_CO2_only = ind_CO2_only';
+
+% so far all sites that measure CH4 also measure CO2
+ind_Flux_CO2_CH4 = ind_CO2 & ind_CH4;
+ind_array_CO2_CH4 = find(ind_Flux_CO2_CH4);
+numFluxCO2_CH4 = sum(ind_Flux_CO2_CH4);
+
+ind_Flux_CO2_H2O = ind_CO2 & ind_H2O;
+ind_array_CO2_H2O = find(ind_Flux_CO2_H2O);
+numFluxCO2_H2O = sum(ind_Flux_CO2_H2O);
+
+ind_Flux_CO2_CH4_H2O = ind_CO2 & ind_CH4 & ind_H2O;
+ind_array_CO2_CH4_H2O = find(ind_Flux_CO2_CH4_H2O);
+numFluxCO2_CH4_H2O = sum(ind_Flux_CO2_CH4_H2O);
+
+colors = [[1 31 75]./255;
+            [3 57 108]./255;
+            [0 91 150]./255;
+            [100 151 177]./255;
+            [179 205 224]./255];
+
+% sites with FC
+for k = 1:length(ind_CO2_only)
+    ind = ind_CO2_only(k);
+    h1 = m_line(t.Longitude_degrees_(ind),t.Latitude_degrees_(ind),'marker','^','markersize',9,'markeredgecolor','k','markerfacecolor',colors(3,:),'color',[0 0 0]);
+end
+
+% sites with FC and FCH4
+for k = 1:length(ind_array_CO2_CH4)
+    ind = ind_array_CO2_CH4(k);
+    h2 = m_line(t.Longitude_degrees_(ind),t.Latitude_degrees_(ind),'marker','o','markersize',9,'markeredgecolor','k','markerfacecolor','#23e200','color',[0 0 0]);
+end
+
+set(h1,'linestyle','none')
+set(h2,'linestyle','none')
+legend([h1 h2],{['FC (' num2str(numCO2_only) ')'],['FC + FCH4 (' num2str(numFluxCO2_CH4) ')']},'FontSize',18)
+
+%% Investigate which fluxes (CO2/CH4 sample which ecosystems)
+
+% define data
+% SiteVegetation = t.VegetationDescription_IGBP_;    % Ameriflux + self-reported
+% classes = unique(SiteVegetation);
+% classes(cellfun(@isempty,classes)) = [];
+
+Ecos_CO2 = t.VegetationAbbreviation_IGBP_(ind_array_CO2);
+allEcos = unique(Ecos_CO2);
+allEcos(1) = [];    % not ideal way of doing this, works for now
+allEcos(8) = [];    % not ideal way of doing this, works for now
+Ecos_CO2_CH4 = t.VegetationAbbreviation_IGBP_(ind_array_CO2_CH4); 
+
+Eco_CO2_only = sum(ind_CO2_only);
+% Eco_CO2
+Eco_Fluxes = [];
+for k = 1:length(allEcos)
+    class = allEcos{k};
+    eval(['ind_' class '_CO2 = sum(contains(Ecos_CO2,class));']);
+    eval(['ind_' class '_CO2_CH4 = sum(contains(Ecos_CO2_CH4,class));']);    
+    eval(['Fluxes_' class ' = [ind_' class '_CO2, ind_' class '_CO2_CH4];']);
+    eval(['Eco_Fluxes = [Eco_Fluxes; Fluxes_' class '];']);
+end
+Eco_Fluxes(:,3) = Eco_Fluxes(:,1) - Eco_Fluxes(:,2);
+
+% plot Eco-Flux data
+figure(4)
+clf;
+set(gcf,'color','white');
+bar([Eco_Fluxes(:,3),Eco_Fluxes(:,2)],'stacked','EdgeColor','none')
+set(gca,'XTickLabel',allEcos,'FontSize',14);%,'XTickLabelRotation',45)
+set(gca,'YTick',0:2:36)
+ylim([0 36])
+set(gca,'YGrid','on')
+legend(['FC (' num2str(numCO2_only) ')'],['FC + FCH4 (' num2str(numFluxCO2_CH4) ')'],'location','northwest')
+xlabel('Ecosystem (Ameriflux)','FontSize',18)
+ylabel('No. of sites','FontSize',18)
+
+% colors = [[1 31 75]./255;
+%             [3 57 108]./255;
+%             [0 91 150]./255;
+%             [100 151 177]./255;
+%             [179 205 224]./255];
+% b.CData = colors;
+
+%% extract Canadian site information from Baldocchi 2025
+
+CA_Sites_Orig = t.FluxnetCode;
+CA_Sites = unique(CA_Sites_Orig);
+
+% CA_Lat_Orig = t.Lat;
+% CA_Lat = unique(CA_Lat_Orig);
+% 
+% CA_Lon_Orig = t.Lon;
+% CA_Lon = unique(CA_Lon_Orig);
+
+CA_Lat = NaN(size(CA_Sites));
+CA_Lon = NaN(size(CA_Sites));
+
+for i = 1:length(CA_Sites)
+    ind = find(strcmp(CA_Sites{i},t.FluxnetCode));
+    CA_Lat(i) = t.Lat(ind(1));  % take first matching index and get latitude
+    CA_Lon(i) = t.Lon(ind(1));  % take first matching index and get latitude
+end
+
+T_Sites_Baldocchi = table(CA_Sites,CA_Lat,CA_Lon);
+BaldocchiLatLons = table2array(T_Sites_Baldocchi(:,2:3));
+
+% After removing duplicates and other symbols (e.g.,'??'), there are a
+% total of 30 Canadian sites total
+
+
+
+%% plot bar chart with site number information
+
+[a,b] = size(t);
+
+% total number of sites
+numSites = length(find(~cellfun(@isempty, t.Name)));
+
+% Ameriflux and non-Ameriflux sites
+ind = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+n_Ameriflux = length(find(~cellfun(@isempty,t.Name(1:ind-1))));
+n_nonAmeriflux = length(find(~cellfun(@isempty,t.Name(ind+1:a))));
+
+% sites with data
+ind_notNan = ~isnan(t.NumberOfYearsOfAmeriFluxBASEData(1:ind-1));
+ind_nonZero =  t.NumberOfYearsOfAmeriFluxBASEData(1:ind-1) > 0;
+ind_withData = ind_notNan & ind_nonZero;
+n_Ameriflux_withData = sum(ind_withData);
+n_Ameriflux_noData = n_Ameriflux - n_Ameriflux_withData;
+
+Categories = {'Total sites','Ameriflux (registered)','Ameriflux (data)','Ameriflux (no data)','Not registered'};
+vals = [numSites; n_Ameriflux; n_Ameriflux_withData; n_Ameriflux_noData; n_nonAmeriflux];
+% vals = [135;83;68;15;52];
+percentVals = round((vals./numSites)*100);
+
+figure(1);
+clf;
+set(gcf,'color','white');
+% b = bar(vals',0.8);
+b = bar(percentVals',0.8);
+b.FaceColor = 'flat';
+b.EdgeColor = 'none';
+
+colors = [[1 31 75]./255;
+            [3 57 108]./255;
+            [0 91 150]./255;
+            [100 151 177]./255;
+            [179 205 224]./255];
+b.CData = colors;
+
+xtips = b.XEndPoints;
+ytips = b.YEndPoints;
+% labels = string(percentVals);
+offset = 0.3;
+for k = 1:length(vals)
+    label = string(vals(k));
+    label = strcat('(',label,')');
+    % label = strcat(label,'%');
+    text(xtips(k), ytips(k) + offset, label, 'HorizontalAlignment','center','VerticalAlignment','bottom','FontSize',16);
+end
+
+set(gca,'YGrid','on')
+set(gca,'XTickLabel',Categories,'FontSize',24,'XTickLabelRotation',45)
+
+% ylim([0 145])
+ax = gca;
+ax.XAxis.TickLength = [0 0]; 
+ax.XAxis.FontSize = 24;
+ax.YAxis.FontSize = 14;
+ylabel('Frequency (%)','FontSize',24)
+% ylabel('Frequency (sites)','FontSize',24)
+
+
+
+%% plot pie chart of ecosystems
+
+% BASEVegetation = p.VegetationDescription_IGBP_; % Ameriflux only
+SiteVegetation = t.VegetationDescription_IGBP_;    % Ameriflux + self-reported
+% SiteVegetation = t.Var4;    % Ameriflux + self-reported
+% SiteVegetation = t.VegetationAbbreviation_IGBP_;    % Ameriflux + self-reported
+
+classes = unique(SiteVegetation);
+% for i = 1:length(classes)
+    % if length(classes{i}) > 3
+        % classes{i} = {};
+    % end
+% end
+classes(cellfun(@isempty,classes)) = [];
+percentVeg = NaN(length(classes),1);
+classShort = cell(length(classes),1);
+
+for i = 1:length(classes)
+    class = classes{i};
+    numPerClass = length(find(strcmp(class,SiteVegetation)));
+    percentVeg(i) = (numPerClass/length(SiteVegetation))*100;
+    % get shortened class name
+    tmp = split(classes{i},':');
+    classShort{i} = strcat(tmp{1},[' (' num2str(numPerClass) ')']);
+end
+
+percentVeg_rounded = round(percentVeg);
+mycolors = ["#8C1A66", "#D966B3", "#78AB30", "#C7E0A3", "#5B731F", "#B9E67D", "#954535", "#C19A6B",'#005B96']';
+
+T = table(percentVeg_rounded,classShort,mycolors);
+T_sort = sortrows(T,1,'descend');
+
+figure(2);
+clf;
+set(gcf,'color','white');
+d = donutchart(T_sort.percentVeg_rounded,T_sort.classShort);
+% d = donutchart(percentVeg_rounded,classShort);
+% mycolors = ["#8C1A66", "#D966B3", "#78AB30", "#C7E0A3", "#5B731F", "#B9E67D", "#954535", "#C19A6B"];
+% mycolorsOLD = ["#8C1A66", "#D966B3", "#78AB30", "#C7E0A3", "#5B731F", "#B9E67D", "#00A3A3", "#00E6E6"];
+colororder(T_sort.mycolors);
+% colororder(mycolors);
+d.FontSize = 18;
+d.EdgeColor = "white";
+d.LineWidth = 4;
+d.LabelStyle = "name";
+d.CenterLabel = ["Canadian" "Flux Site" "Ecosystems"];
+d.CenterLabelFontSize = 32;
+d.StartAngle = -45;
+
+
+%% plot number of years of BASE data
+BASEData_NumYears = t.NumberOfYearsOfAmeriFluxBASEData;
+BASEData_NumYears(BASEData_NumYears == 0) = NaN;
+
+Data_moreThanFiveYrs = find(BASEData_NumYears > 5); % Altaf requested this information
+
+figure(3);
+clf;
+set(gcf,'color','white');
+subplot(2,1,1);
+h = histogram(BASEData_NumYears);
+% h.EdgeColor = "none";         
+xlim([0 28])
+set(gca,'YGrid','on')
+ax = gca;
+ax.FontSize = 12;
+
+set(gca,'XTick',0:2:30)
+set(gca,'XTickLabel',{'',2:2:30})
+% set(gca,'XTickLabel',{'','5','10','15','20','25'})
+
+% xlabel('Number of years of BASE data','FontSize',18)
+xlabel('Length of BASE dataset (years)','FontSize',18)
+ylabel('Frequency','FontSize',18)
+title('Sites with BASE data by length of dataset','FontSize',18)
+
+
+%% plot years of data
+BASEData_Years = t.YearsOfAmeriFluxBASEData;
+BASEData_Years_Vals = [];
+
+count = 1;
+for i = 1:length(BASEData_Years)
+    tmp =  split(BASEData_Years{i,1},",");
+    l_tmp = length(tmp);
+    for j = 1:l_tmp
+        if isempty(tmp{j})
+            BASEData_Years_Vals(count) = NaN;
+            count = count + 1;
+        else
+            BASEData_Years_Vals(count) = str2num(tmp{j});
+            count = count + 1;
+        end
+    end
+
+end
+% figure(4)
+% clf;
+% set(gcf,'color','white');
+
+subplot(2,1,2)
+
+% counts = histcounts(BASEData_Years_Vals);
+% bar(counts, 0.8); 
+histogram(BASEData_Years_Vals);
+% h = histogram(BASEData_Years_Vals);
+% h.BarWidth = 0.9;
+
+xlim([1993 2026])
+set(gca,'YGrid','on')
+ax = gca;
+ax.FontSize = 12;
+xlabel('Year','FontSize',18)
+ylabel('Frequency','FontSize',18)
+title('Sites with BASE data by year','FontSize',18)
+
+%% explore years of data per ecosystem
+% load Ameriflux only for now (fname)
+
+startYear = p.AmeriFluxBASEDataStart;
+endYear = p.AmeriFluxBASEDataEnd;
+totalNumYears = (endYear - startYear)+1;
+
+rangeYears = p.YearsOfAmeriFluxBASEData;    % list of years directly from Ameriflux
+BASEData_NumYears = p.NumberOfYearsOfAmeriFluxBASEData;
+BASEData_NumYears(BASEData_NumYears == 0) = NaN;
+
+% does range equal number of years? (i.e., could be year(s) missing
+% somewhere within total range)
+actualYears = {};
+hypotheticalNumYears = {};
+for i = 1:length(rangeYears)
+    hypothetical = startYear(i):1:endYear(i);
+    hypotheticalNumYears = [hypotheticalNumYears; hypothetical];
+
+    actual = str2num(rangeYears{i});
+    if isempty(actual)
+        actualYears = [actualYears; NaN];
+    else
+        actualYears = [actualYears; actual];
+    end
+end
+% now compare length of array for each year
+for i = 1:length(rangeYears)
+    diff(i) = abs(length(actualYears{i}) - length(hypotheticalNumYears{i}));
+end
+
+% after testing, can use start and end years and assume there is continuous
+% data between those:
+for i = 1:length(startYear)
+    startDate(i) = datetime(startYear(i),1,1,"Format","dd-MMM-uuuu");
+end
+startDate = startDate';
+for i = 1:length(endYear)
+    endDate(i) = datetime(endYear(i),12,31,"Format","dd-MMM-uuuu");
+end
+endDate = endDate';
+
+dates = cat(2,startDate,endDate);
+M = max(cellfun(@length, actualYears));
+allDataDates = NaN(length(rangeYears),M);
+
+% data for plotting
+T = table(p.SiteID,actualYears,BASEData_NumYears,p.VegetationAbbreviation_IGBP_);
+T_sort = sortrows(T,3,'descend');
+T_sort = rmmissing(T_sort);
+[a,b] = size(T_sort);
+
+buffer = 0.5;   % half a year for centering on whole years in plot
+
+for i = 1:a
+    years = T_sort.Var2{i};
+    if isscalar(years)
+        T_sort.Var5{i} = [years-buffer,years+buffer];
+    else
+        years(1) = years(1) - buffer;
+        years(end) = years(end) + buffer;
+        T_sort.Var5{i} = years(1):1:years(end);
+    end
+end
+
+% % plot BASE data availability per site
+% figure(1);
+% clf;
+% set(gcf,'color','white');
+% for i = 1:a
+%     plot(T_sort.Var5{i},i*ones(size(T_sort.Var5{i})),'LineWidth',10)
+%     ylim([0 length(T_sort.Var5)+1])
+%     xlim([1992 2026])
+%     hold on
+%     set(gca,'XGrid','on')
+% end
+% 
+% set(gca,'XTick',1992:2:2026)
+% set(gca,'YTick',1:1:a)
+% set(gca,'YTickLabel',T_sort.Var1)
+% 
+% ylabel('Site ID','FontSize',16)
+% xlabel('Year','FontSize',16)
+% title('Ameriflux BASE Data Availability','FontSize',18)
+
+% plot BASE data availability by ecosystem per site
+% 'Evergreen Needleleaf Forests (33)'	"#C7E0A3"
+% 'Permanent Wetlands (30)'	"#C19A6B"
+% 'Croplands (12)'	"#D966B3"
+% 'Open Shrublands (12)'	"#954535"
+% 'Grasslands (6)'	"#5B731F"
+% 'Water Bodies (5)'	"#005B96"
+% 'Mixed Forests (4)'	"#B9E67D"
+% 'Deciduous Broadleaf Forests (3)'	"#78AB30"
+% 'Barren Sparse Vegetation (2)'	"#8C1A66"
+
+T_sort_Eco = sortrows(T_sort,4,'ascend');
+
+% separate into different tables
+Ecos = unique(T_sort_Eco.Var4);
+% mycolors = ["#C7E0A3", "#C19A6B", "#D966B3", "#954535", "#5B731F", "#B9E67D", "#78AB30", "#8C1A66"]';
+
+mycolors = ['#8C1A66', "#D966B3", "#78AB30", "#C7E0A3", "#5B731F", "#B9E67D", "#954535", "#C19A6B"];
+
+count = 1;
+for i = 1:length(Ecos)
+    ind = strcmp(T_sort_Eco.Var4, Ecos{i});
+    T_sort_Eco{ind,'colors'} = mycolors(count);
+    eval(['T_' Ecos{i} ' = T_sort_Eco(ind,:);']);
+    count = count + 1;
+end
+
+figure(2);
+clf;
+set(gcf,'color','white');
+
+[a,b] = size(T_sort_Eco);
+for j = 1:length(Ecos)
+    Eco = Ecos{j};
+    for i = 1:a
+        if strcmp(T_sort_Eco.Var4{i},Eco) == 0
+            % plot(T_sort_Eco.Var5{i},i*ones(size(T_sort_Eco.Var5{i})),'LineWidth',10,'color',mycolors{j});
+            continue
+        else
+            h(j) = plot(T_sort_Eco.Var5{i},i*ones(size(T_sort_Eco.Var5{i})),'LineWidth',10,'color',T_sort_Eco.colors{i});
+        end
+            hold on
+    end
+end
+
+ylim([0 length(T_sort_Eco.Var5)+1])
+xlim([1992 2026])
+set(gca,'XGrid','on')
+set(gca,'XTick',1992:1:2026)
+set(gca,'YTick',1:1:a)
+set(gca,'YTickLabel',T_sort_Eco.Var1)
+
+ylabel('Site ID','FontSize',16)
+xlabel('Year','FontSize',16)
+title('Ameriflux BASE Data Availability by Ecosystem','FontSize',18)
+
+% set(h,'linestyle','none')
+l = legend(h,Ecos,'FontSize',14,'location','northwest');
+l.Direction = 'Reverse';
