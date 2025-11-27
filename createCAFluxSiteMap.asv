@@ -8,13 +8,8 @@
 %   1. Canadian map of flux sites (Ameriflux/non-Ameriflux)
 %   2. Map of flux sites by ecosystem
 %   3. Map of flux sites by flux measurement (CH4/CO2)
-%   4. Bar chart of which fluxes (CO2/CH4) sample which ecosystems
-%   5. Extract Canadian site information from Baldocchi 2025
-%   6. Plot bar chart with site number information ('Total sites','Ameriflux (registered)','Ameriflux (data)','Ameriflux (no data)','Not registered')
-%   7. Plot pie chart (donut) of ecosystems
-%   8. Plot number of years of BASE data
-%   9. Plot years of data (coupled with 8)
-%   10. Plot/explore years of data per ecosystem
+%   4.
+
 
 
 %% extract data from TSV file
@@ -375,8 +370,8 @@ set(h1,'linestyle','none')
 set(h2,'linestyle','none')
 legend([h1 h2],{['FC (' num2str(numCO2_only) ')'],['FC + FCH4 (' num2str(numFluxCO2_CH4) ')']},'FontSize',18)
 
-%% 4. Investigate which fluxes (CO2/CH4) sample which ecosystems
-% must have run section 3 first
+%% 4. Investigate which fluxes (CO2/CH4 sample which ecosystems)
+% must 
 
 % define data
 % SiteVegetation = t.VegetationDescription_IGBP_;    % Ameriflux + self-reported
@@ -421,7 +416,7 @@ ylabel('No. of sites','FontSize',18)
 %             [179 205 224]./255];
 % b.CData = colors;
 
-%% 5. Extract Canadian site information from Baldocchi 2025
+%% extract Canadian site information from Baldocchi 2025
 
 CA_Sites_Orig = t.FluxnetCode;
 CA_Sites = unique(CA_Sites_Orig);
@@ -449,7 +444,7 @@ BaldocchiLatLons = table2array(T_Sites_Baldocchi(:,2:3));
 
 
 
-%% 6. plot bar chart with site number information
+%% plot bar chart with site number information
 
 [a,b] = size(t);
 
@@ -512,7 +507,7 @@ ylabel('Frequency (%)','FontSize',24)
 
 
 
-%% 7. Plot pie chart of ecosystems
+%% plot pie chart of ecosystems
 
 % BASEVegetation = p.VegetationDescription_IGBP_; % Ameriflux only
 SiteVegetation = t.VegetationDescription_IGBP_;    % Ameriflux + self-reported
@@ -562,7 +557,7 @@ d.CenterLabelFontSize = 32;
 d.StartAngle = -45;
 
 
-%% 8. Plot number of years of BASE data
+%% plot number of years of BASE data
 BASEData_NumYears = t.NumberOfYearsOfAmeriFluxBASEData;
 BASEData_NumYears(BASEData_NumYears == 0) = NaN;
 
@@ -599,8 +594,7 @@ ylabel('Frequency','FontSize',18)
 title('Sites with BASE data by length of dataset','FontSize',18)
 
 
-%% 9. Plot years of data
-
+%% plot years of data
 BASEData_Years = t.YearsOfAmeriFluxBASEData;
 BASEData_Years_Vals = [];
 
@@ -639,7 +633,7 @@ xlabel('Year','FontSize',18)
 ylabel('Frequency','FontSize',18)
 title('Sites with BASE data by year','FontSize',18)
 
-%% 10. explore years of data per ecosystem
+%% explore years of data per ecosystem
 % load Ameriflux only for now (fname)
 
 startYear = p.AmeriFluxBASEDataStart;
