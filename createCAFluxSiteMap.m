@@ -5,7 +5,10 @@
 
 % Section list:
 %   0. Extract data from relevant spreadsheet
-%   1. Canadian map of flux sites (Ameriflux/non-Ameriflux)
+%   1a. Canadian map of flux sites: Ameriflux/non-Ameriflux; CFI PI/collaborators/other sites; data categories within that
+%   1b. Canadian map of flux sites: CFI PI-owned; CFI collaborator-owned; Other sites with data publicly available; Other sites
+%   1c. Canadian map of flux sites: active vs. inactive
+%   1d. Canadian map of flux sites: historical, active, and proposed (i.e. any site we have coordinates for in the site spreadsheet)
 %   2. Map of flux sites by ecosystem
 %   3. Map of flux sites by flux measurement (CH4/CO2)
 %   4. Bar chart of which fluxes (CO2/CH4) sample which ecosystems
@@ -15,7 +18,8 @@
 %   8. Plot number of years of BASE data
 %   9. Plot years of data (coupled with 8)
 %   10. Plot/explore years of data per ecosystem
-%   11. Economical analysis (very rough!)
+%   11a. Economical analysis (very rough!)
+%   11b. Economical analysis (very rough!)
 
 
 %% 0. Extract data from TSV file
@@ -32,18 +36,21 @@ fname_20Feb2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet20Feb2026_NotInc
 
 fname_ORIG_17Sept2025 = 'Canadian-Flux-Sites_17Sept2025_ORIG_forComparison.tsv';
 
+fname_25Feb2026_incProposedSites = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet25Feb2026_IncludingProposedSites.tsv';
 
 w = warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');
 % p = readtable(fullfile(fpath,fname), "FileType","text",'Delimiter', '\t');
-t = readtable(fullfile(fpath,fname_20Feb2026), "FileType","text",'Delimiter', '\t');
+t = readtable(fullfile(fpath,fname_20Feb2026), "FileType","text",'Delimiter', '\t');                    % does not include proposed towers
 v = readtable(fullfile(fpath,fname_ORIG_17Sept2025), "FileType","text",'Delimiter', '\t');
+x = readtable(fullfile(fpath,fname_25Feb2026_incProposedSites), "FileType","text",'Delimiter', '\t');   % includes proposed towers
 
 % fname_Baldocchi = 'CanadianSites_Baldocchi2025.csv';
 % t = readtable(fullfile(fpath,fname_Baldocchi),'Delimiter', ',');
 
 addpath(genpath('/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux'));
 
-%% Identify CFI collaborators by comparing current site spreadsheet with original 
+%% RUN SECTION ONLY WHEN WANTING TO UPDATE CFI PIs/collaborator FILE!!!!
+% Identify CFI collaborators by comparing current site spreadsheet with original 
 % (Canadian-Flux-Sites_17Sept2025_ORIG_forComparison), using lat/lon
 
 % using latitudes
@@ -173,8 +180,12 @@ j1(ind_AmerifluxData_collabs) = false;
 ind_noAmerifluxData_collabs = find(j1); 
 
 % find indices among remaining "other" sites that have data
-AmerifluxData_otherSites = t.NumberOfYearsOfAmeriFluxBASEData(ind_otherSites);
-ind_AmerifluxData_otherSites = find(AmerifluxData_otherSites > 0);
+ind_AmerifluxData_otherSites = find(t.NumberOfYearsOfAmeriFluxBASEData(ind_otherSites) > 0);
+ind_AmerifluxData_otherSites = find(t.NumberOfYearsOfAmeriFluxBASEData(ind_otherSites) > 0);
+
+% AmerifluxData_otherSites = t.NumberOfYearsOfAmeriFluxBASEData(ind_otherSites);
+% ind_AmerifluxData_otherSites = find(AmerifluxData_otherSites > 0);
+
 % find indices among remaining "other" sites that do NOT have data
 P = length(ind_otherSites); 
 k1 = true(1, P); 
@@ -186,20 +197,15 @@ n_totalSites = length(ind_CFI_PIs)+length(ind_collab_PIs)+length(ind_otherSites)
 n_data = length(ind_AmerifluxData_CFI_PIs)+length(ind_AmerifluxData_collabs)+length(ind_AmerifluxData_otherSites);  % total sites with data
 n_nodata = length(ind_noAmerifluxData_CFI_PIs)+length(ind_noAmerifluxData_collabs)+length(ind_noAmerifluxData_otherSites);  % total sites with NO data
 
-%% active vs. historical vs. unknown (plotting in 1b below)
+%% Four categories (Sara's request): CFI PI-owned; CFI collaborator-owned; Other sites with data publicly available; Other sites (plotting in 1c below)
 
-% ind_activeSites = (t.ActiveSite == 1);
-% ind_inactiveSites = (t.ActiveSite == 0);
-% ind_unknown = isnan(t.ActiveSite);
-% 
-% active_lats = t.Latitude_degrees_(ind_activeSites);
-% active_lons = t.Longitude_degrees_(ind_activeSites);
-% 
-% inactive_lats = t.Latitude_degrees_(ind_inactiveSites);
-% inactive_lons = t.Longitude_degrees_(ind_inactiveSites);
-% 
-% unknown_lats = t.Latitude_degrees_(ind_unknown);
-% unknown_lons = t.Longitude_degrees_(ind_unknown);
+% CFI PI-owned: use ind_CFI_PIs
+% CFI collaborator-owned: use ind_collab_PIs
+% Other sites with publicly available data (Ameriflux): use ind_otherSites(ind_AmerifluxData_otherSites)
+% Other sites: find remaining
+
+
+%% active vs. historical vs. unknown (plotting in 1c below)
 
 ind_activeSites = find(t.ActiveSite == 1);
 ind_inactiveSites = find(t.ActiveSite == 0);
@@ -227,6 +233,7 @@ for i = 1:length(common_values)
     mask = (ind_unknown ~= common_values(i));
     ind_unknown = ind_unknown(mask);
 end
+
 
 %% PLOTTING BEGINS HERE
 
@@ -321,143 +328,134 @@ m_grid;
 
 % plot "other" site first so they appear at back
 markerSize_other = 8;
-% % remaining sites (ALL)
-% for k = 1:length(ind_otherSites)
-%     h3 = m_line(t.Longitude_degrees_(ind_otherSites(k)),t.Latitude_degrees_(ind_otherSites(k)),'marker','o','markersize',markerSize_other,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
-% end
+% remaining sites (ALL)
+for k = 1:length(ind_otherSites)
+    h3 = m_line(t.Longitude_degrees_(ind_otherSites(k)),t.Latitude_degrees_(ind_otherSites(k)),'marker','o','markersize',markerSize_other,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
+end
 % remaining sites wth NO Ameriflux data
-for k = 1:length(ind_noAmerifluxData_otherSites)
-    h3_nodata = m_line(t.Longitude_degrees_(ind_otherSites(ind_noAmerifluxData_otherSites(k))), ...
-                t.Latitude_degrees_(ind_otherSites(ind_noAmerifluxData_otherSites(k))), ...
-                'marker','o','markersize',markerSize_other,'markeredgecolor','k','markerfacecolor','#DADADA','color',[0 0 0]);
-end
-% remaining sites WITH Ameriflux DATA
-for k = 1:length(ind_AmerifluxData_otherSites)
-    h3_data = m_line(t.Longitude_degrees_(ind_otherSites(ind_AmerifluxData_otherSites(k))), ...
-                    t.Latitude_degrees_(ind_otherSites(ind_AmerifluxData_otherSites(k))), ...
-                    'marker','o','markersize',markerSize_other,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
-end
+% for k = 1:length(ind_noAmerifluxData_otherSites)
+%     h3_nodata = m_line(t.Longitude_degrees_(ind_otherSites(ind_noAmerifluxData_otherSites(k))), ...
+%                 t.Latitude_degrees_(ind_otherSites(ind_noAmerifluxData_otherSites(k))), ...
+%                 'marker','o','markersize',markerSize_other,'markeredgecolor','k','markerfacecolor','#DADADA','color',[0 0 0]);
+% end
+% % remaining sites WITH Ameriflux DATA
+% for k = 1:length(ind_AmerifluxData_otherSites)
+%     h3_data = m_line(t.Longitude_degrees_(ind_otherSites(ind_AmerifluxData_otherSites(k))), ...
+%                     t.Latitude_degrees_(ind_otherSites(ind_AmerifluxData_otherSites(k))), ...
+%                     'marker','o','markersize',markerSize_other,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
+% end
 
 % plot collabs next...
 markerSize_collabs = 10;
-% % collaborator sites (ALL)
-% for k = 1:length(ind_collab_PIs)
-%     h2 = m_line(t.Longitude_degrees_(ind_collab_PIs(k)),t.Latitude_degrees_(ind_collab_PIs(k)),'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
-% end
+% collaborator sites (ALL)
+for k = 1:length(ind_collab_PIs)
+    h2 = m_line(t.Longitude_degrees_(ind_collab_PIs(k)),t.Latitude_degrees_(ind_collab_PIs(k)),'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
+end
 % collaborator sites with NO Ameriflux Data
-for k = 1:length(ind_noAmerifluxData_collabs)
-    h2_nodata = m_line(t.Longitude_degrees_(ind_collab_PIs(ind_noAmerifluxData_collabs(k))), ...
-                t.Latitude_degrees_(ind_collab_PIs(ind_noAmerifluxData_collabs(k))), ...
-                'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#CAE9F5','color',[0 0 0]);
-end
-% collaborator sites WITH AMERIFLUX DATA
-for k = 1:length(ind_AmerifluxData_collabs)
-    h2_data = m_line(t.Longitude_degrees_(ind_collab_PIs(ind_AmerifluxData_collabs(k))), ...
-                t.Latitude_degrees_(ind_collab_PIs(ind_AmerifluxData_collabs(k))), ...
-                'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
-end
+% for k = 1:length(ind_noAmerifluxData_collabs)
+%     h2_nodata = m_line(t.Longitude_degrees_(ind_collab_PIs(ind_noAmerifluxData_collabs(k))), ...
+%                 t.Latitude_degrees_(ind_collab_PIs(ind_noAmerifluxData_collabs(k))), ...
+%                 'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#CAE9F5','color',[0 0 0]);
+% end
+% % collaborator sites WITH AMERIFLUX DATA
+% for k = 1:length(ind_AmerifluxData_collabs)
+%     h2_data = m_line(t.Longitude_degrees_(ind_collab_PIs(ind_AmerifluxData_collabs(k))), ...
+%                 t.Latitude_degrees_(ind_collab_PIs(ind_AmerifluxData_collabs(k))), ...
+%                 'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
+% end
 
 % plot CFI PIs
 markerSize_PIs = 12;
-% % CFI PI sites (ALL)
-% for k = 1:length(ind_CFI_PIs)
-%     h1 = m_line(t.Longitude_degrees_(ind_CFI_PIs(k)),t.Latitude_degrees_(ind_CFI_PIs(k)),'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
-% end
+% CFI PI sites (ALL)
+for k = 1:length(ind_CFI_PIs)
+    h1 = m_line(t.Longitude_degrees_(ind_CFI_PIs(k)),t.Latitude_degrees_(ind_CFI_PIs(k)),'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
+end
 % CFI PI sites WITH NO AMERIFLUX DATA
-for k = 1:length(ind_noAmerifluxData_CFI_PIs)
-    h1_nodata = m_line(t.Longitude_degrees_(ind_CFI_PIs(ind_noAmerifluxData_CFI_PIs(k))), ...
-                t.Latitude_degrees_(ind_CFI_PIs(ind_noAmerifluxData_CFI_PIs(k))), ...
-                'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#FFE3F7','color',[0 0 0]);
-end
-% CFI PI sites WITH AMERIFLUX DATA
-for k = 1:length(ind_AmerifluxData_CFI_PIs)
-    h1_data = m_line(t.Longitude_degrees_(ind_CFI_PIs(ind_AmerifluxData_CFI_PIs(k))), ...
-                t.Latitude_degrees_(ind_CFI_PIs(ind_AmerifluxData_CFI_PIs(k))), ...
-                'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
-end
+% for k = 1:length(ind_noAmerifluxData_CFI_PIs)
+%     h1_nodata = m_line(t.Longitude_degrees_(ind_CFI_PIs(ind_noAmerifluxData_CFI_PIs(k))), ...
+%                 t.Latitude_degrees_(ind_CFI_PIs(ind_noAmerifluxData_CFI_PIs(k))), ...
+%                 'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#FFE3F7','color',[0 0 0]);
+% end
+% % CFI PI sites WITH AMERIFLUX DATA
+% for k = 1:length(ind_AmerifluxData_CFI_PIs)
+%     h1_data = m_line(t.Longitude_degrees_(ind_CFI_PIs(ind_AmerifluxData_CFI_PIs(k))), ...
+%                 t.Latitude_degrees_(ind_CFI_PIs(ind_AmerifluxData_CFI_PIs(k))), ...
+%                 'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
+% end
 
 %-----------------------------------------------
 % legend and stats for plotting sites with data categories
 %-----------------------------------------------
-n_totalSites = length(ind_CFI_PIs)+length(ind_collab_PIs)+length(ind_otherSites);
-n_data = length(ind_AmerifluxData_CFI_PIs)+length(ind_AmerifluxData_collabs)+length(ind_AmerifluxData_otherSites);  % total sites with data
-n_nodata = length(ind_noAmerifluxData_CFI_PIs)+length(ind_noAmerifluxData_collabs)+length(ind_noAmerifluxData_otherSites);  % total sites with NO data
-
-n_CFI_PIs = length(ind_CFI_PIs);    % total PI-owned    
+% n_totalSites = length(ind_CFI_PIs)+length(ind_collab_PIs)+length(ind_otherSites);
+% n_data = length(ind_AmerifluxData_CFI_PIs)+length(ind_AmerifluxData_collabs)+length(ind_AmerifluxData_otherSites);  % total sites with data
+% n_nodata = length(ind_noAmerifluxData_CFI_PIs)+length(ind_noAmerifluxData_collabs)+length(ind_noAmerifluxData_otherSites);  % total sites with NO data
+% 
+% n_CFI_PIs = length(ind_CFI_PIs);    % total PI-owned    
 % percent_CFI_PIs = round((n_CFI_PIs/n_totalSites)*100);  % percent PI-owned
-n_CFI_PIs_data = length(ind_AmerifluxData_CFI_PIs);     % total PI-owned with data
-percent_CFI_PIs_data = round((n_CFI_PIs_data/n_totalSites)*100);    % percentage of total sites that are PI-owned and have data
+% n_CFI_PIs_data = length(ind_AmerifluxData_CFI_PIs);     % total PI-owned with data
+% percent_CFI_PIs_data = round((n_CFI_PIs_data/n_totalSites)*100);    % percentage of total sites that are PI-owned and have data
 % percent_CFI_PIs_data_ofPIs = round((n_CFI_PIs_data/n_CFI_PIs_data)*100);    % percentage of PI-owned sites that have data
-n_CFI_PIs_nodata = length(ind_noAmerifluxData_CFI_PIs);     % total PI-owned with NO data
-percent_CFI_PIs_nodata = round((n_CFI_PIs_nodata/n_totalSites)*100);    % percentage of total sites that are PI-owned and have NO data
+% n_CFI_PIs_nodata = length(ind_noAmerifluxData_CFI_PIs);     % total PI-owned with NO data
+% percent_CFI_PIs_nodata = round((n_CFI_PIs_nodata/n_totalSites)*100);    % percentage of total sites that are PI-owned and have NO data
 % percent_CFI_PIs_nodata_ofPIs = round((n_CFI_PIs_nodata/n_CFI_PIs_nodata)*100);    % percentage of PI-owned sites that have NO data
-
-n_collab_PIs = length(ind_collab_PIs);  % total collab-owned
+% 
+% n_collab_PIs = length(ind_collab_PIs);  % total collab-owned
 % percent_collab_PIs = round((n_collab_PIs/n_totalSites)*100);    % percent collab-owned
-n_collab_PIs_data = length(ind_AmerifluxData_collabs);     % total PI-owned with data
-percent_collab_PIs_data = round((n_collab_PIs_data/n_totalSites)*100);    % percentage of total sites that are PI-owned and have data
+% n_collab_PIs_data = length(ind_AmerifluxData_collabs);     % total PI-owned with data
+% percent_collab_PIs_data = round((n_collab_PIs_data/n_totalSites)*100);    % percentage of total sites that are PI-owned and have data
 % percent_collab_PIs_data_ofcollabs = round((n_collab_PIs_data/n_collab_PIs_data)*100);    % percentage of PI-owned sites that have data
-n_collab_PIs_nodata = length(ind_noAmerifluxData_collabs);     % total PI-owned with NO data
-percent_collab_PIs_nodata = round((n_collab_PIs_nodata/n_totalSites)*100);    % percentage of total sites that are PI-owned and have NO data
+% n_collab_PIs_nodata = length(ind_noAmerifluxData_collabs);     % total PI-owned with NO data
+% percent_collab_PIs_nodata = round((n_collab_PIs_nodata/n_totalSites)*100);    % percentage of total sites that are PI-owned and have NO data
 % percent_collab_PIs_nodata_ofcollabs = round((n_collab_PIs_nodata/n_collab_PIs_nodata)*100);    % percentage of PI-owned sites that have NO data
-
-n_otherSites = length(ind_otherSites);  % total other sites
+% 
+% n_otherSites = length(ind_otherSites);  % total other sites
 % percent_otherSites = round((n_otherSites/n_totalSites)*100);   % percent other sites
-n_otherSites_data = length(ind_AmerifluxData_otherSites);     % total PI-owned with data
-percent_otherSites_data = round((n_otherSites_data/n_totalSites)*100);    % percentage of total sites that are PI-owned and have data
-% percent_otherSites_data_ofother = round((n_otherSites_data/n_otherSites_data)*100);    % percentage of PI-owned sites that have data
-n_otherSites_nodata = length(ind_noAmerifluxData_otherSites);     % total PI-owned with NO data
-percent_otherSites_nodata = round((n_otherSites_nodata/n_totalSites)*100);    % percentage of total sites that are PI-owned and have NO data
-% percent_otherSites_nodata_ofother = round((n_otherSites_nodata/n_otherSites_nodata)*100);    % percentage of PI-owned sites that have NO data
-
-set(h1_data,'linestyle','none')
-set(h1_nodata,'linestyle','none')
-set(h2_data,'linestyle','none')
-set(h2_nodata,'linestyle','none')
-set(h3_data,'linestyle','none')
-set(h3_nodata,'linestyle','none')
+% n_otherSites_data = length(ind_AmerifluxData_otherSites);     % total other with data
+% percent_otherSites_data = round((n_otherSites_data/n_totalSites)*100);    % percentage of total sites that are not PI-owned and have data
+% percent_otherSites_data_ofother = round((n_otherSites_data/n_otherSites_data)*100);    % percentage of other sites that have data
+% n_otherSites_nodata = length(ind_noAmerifluxData_otherSites);     % total other with NO data
+% percent_otherSites_nodata = round((n_otherSites_nodata/n_totalSites)*100);    % percentage of total sites that are not PI-owned and have NO data
+% percent_otherSites_nodata_ofother = round((n_otherSites_nodata/n_otherSites_nodata)*100);    % percentage of other sites that have NO data
+% 
+% set(h1_data,'linestyle','none')
+% set(h1_nodata,'linestyle','none')
+% set(h2_data,'linestyle','none')
+% set(h2_nodata,'linestyle','none')
+% set(h3_data,'linestyle','none')
+% set(h3_nodata,'linestyle','none')
 % set(d,'linestyle','none')
-legend([h1_data h1_nodata h2_data h2_nodata h3_data h3_nodata],{ ...
-    [num2str(n_CFI_PIs_data) ' CFI PI-owned with AmeriFlux data (' num2str(percent_CFI_PIs_data) '%)'], ...
-    [num2str(n_CFI_PIs_nodata) ' CFI PI-owned no AmeriFlux data (' num2str(percent_CFI_PIs_nodata) '%)'], ...
-    [num2str(n_collab_PIs_data) ' CFI collaborator-owned with AmeriFlux data (' num2str(percent_collab_PIs_data) '%)'], ...
-    [num2str(n_collab_PIs_nodata) ' CFI collaborator-owned no AmeriFlux data (' num2str(percent_collab_PIs_nodata) '%)'], ...
-    [num2str(n_otherSites_data) ' Other Sites with Ameriflux data (' num2str(percent_otherSites_data) '%)'], ...
-    [num2str(n_otherSites_nodata) ' Other Sites no Ameriflux data (' num2str(percent_otherSites_nodata) '%)']},'FontSize',18);
-
-m_text(-40,63,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
-m_text(-40,60,[num2str(n_data) ' sites with Ameriflux data'],'FontSize',16)
-
-
-% legend([h3_nodata h3_data h2_nodata h2_data h1_nodata h1_data],{ ...
-%     [num2str(n_otherSites_nodata) ' Other Sites no Ameriflux data (' num2str(percent_otherSites_nodata) '%)'], ...
-%     [num2str(n_otherSites_data) ' Other Sites with Ameriflux data (' num2str(percent_otherSites_data) '%)'], ...
-%     [num2str(n_collab_PIs_nodata) ' CFI collaborator-owned no AmeriFlux data (' num2str(percent_collab_PIs_nodata) '%)'], ...
-%     [num2str(n_collab_PIs_data) ' CFI collaborator-owned with AmeriFlux data (' num2str(percent_collab_PIs_data) '%)'], ...
+% legend([h1_data h1_nodata h2_data h2_nodata h3_data h3_nodata],{ ...
+%     [num2str(n_CFI_PIs_data) ' CFI PI-owned with AmeriFlux data (' num2str(percent_CFI_PIs_data) '%)'], ...
 %     [num2str(n_CFI_PIs_nodata) ' CFI PI-owned no AmeriFlux data (' num2str(percent_CFI_PIs_nodata) '%)'], ...
-%     [num2str(n_CFI_PIs_data) ' CFI PI-owned with AmeriFlux data (' num2str(percent_CFI_PIs_data) '%)']},'FontSize',18);
+%     [num2str(n_collab_PIs_data) ' CFI collaborator-owned with AmeriFlux data (' num2str(percent_collab_PIs_data) '%)'], ...
+%     [num2str(n_collab_PIs_nodata) ' CFI collaborator-owned no AmeriFlux data (' num2str(percent_collab_PIs_nodata) '%)'], ...
+%     [num2str(n_otherSites_data) ' Other Sites with Ameriflux data (' num2str(percent_otherSites_data) '%)'], ...
+%     [num2str(n_otherSites_nodata) ' Other Sites no Ameriflux data (' num2str(percent_otherSites_nodata) '%)']},'FontSize',18);
+% 
+% m_text(-40,63,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
+% m_text(-40,60,[num2str(n_data) ' sites with Ameriflux data'],'FontSize',16)
 
 
 %---------------------------------------------------
 % legend and stats for plotting all sites (no data categories)
 %---------------------------------------------------
-% n_totalSites = length(ind_CFI_PIs)+length(ind_collab_PIs)+length(ind_otherSites);
-% n_CFI_PIs = length(ind_CFI_PIs);
-% percent_CFI_PIs = round((n_CFI_PIs/n_totalSites)*100);
-% n_collab_PIs = length(ind_collab_PIs);
-% percent_collab_PIs = round((n_collab_PIs/n_totalSites)*100);
-% n_otherSites = length(ind_otherSites);
-% percent_otherSites = round((n_otherSites/n_totalSites)*100);
-% 
-% set(h1,'linestyle','none')
-% set(h2,'linestyle','none')
-% set(h3,'linestyle','none')
-% % set(d,'linestyle','none')
-% legend([h1 h2 h3],{[num2str(n_CFI_PIs) ' CFI PI-owned (' num2str(percent_CFI_PIs) '%)'], ...
-%     [num2str(n_collab_PIs) ' CFI collaborator-owned (' num2str(percent_collab_PIs) '%)'], ...
-%     [num2str(n_otherSites) ' Other Sites (' num2str(percent_otherSites) '%)']},'FontSize',20);
-% 
-% m_text(-32,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
+n_totalSites = length(ind_CFI_PIs)+length(ind_collab_PIs)+length(ind_otherSites);
+n_CFI_PIs = length(ind_CFI_PIs);
+percent_CFI_PIs = round((n_CFI_PIs/n_totalSites)*100);
+n_collab_PIs = length(ind_collab_PIs);
+percent_collab_PIs = round((n_collab_PIs/n_totalSites)*100);
+n_otherSites = length(ind_otherSites);
+percent_otherSites = round((n_otherSites/n_totalSites)*100);
+
+set(h1,'linestyle','none')
+set(h2,'linestyle','none')
+set(h3,'linestyle','none')
+% set(d,'linestyle','none')
+legend([h1 h2 h3],{[num2str(n_CFI_PIs) ' CFI PI-owned (' num2str(percent_CFI_PIs) '%)'], ...
+    [num2str(n_collab_PIs) ' CFI collaborator-owned (' num2str(percent_collab_PIs) '%)'], ...
+    [num2str(n_otherSites) ' Other Sites (' num2str(percent_otherSites) '%)']},'FontSize',20);
+
+m_text(-32,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
 
 
 
@@ -478,7 +476,143 @@ m_text(-40,60,[num2str(n_data) ' sites with Ameriflux data'],'FontSize',16)
 %     h2 = m_line(siteLatLons_nonAmeriflux(k,2),siteLatLons_nonAmeriflux(k,1),'marker','o','markersize',8,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
 % end
 
-%% 1b. Canadian map of flux sites - active vs. inactive
+saveplot = 0;
+
+if saveplot == 1
+    filetext = 'CFI_SiteMap_OwnershipCategories';
+    saveplotpath = fullfile(fpath, 'SiteSummary','figures',filetext);
+    type = 'png';
+    im_res = 300;
+    str_save = ['print -d' type ' -r' num2str(im_res) ' ' saveplotpath '.' type];
+    eval(str_save);
+end
+
+%% 1b. Canadian map of flux sites - CFI PI-owned; CFI collaborator-owned; Other sites with data publicly available; Other sites (see above)
+
+addpath(genpath('/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux'));
+
+% load map outline
+figure(1)
+clf;
+set(gcf,'color','white');
+
+min_lat = 40;
+max_lat = 85;
+min_lon = -165;
+max_lon = -45;
+
+% load shapefile
+% M = m_shaperead('geo_political_region_2');
+M_nolakes = m_shaperead('ne_10m_admin_0_countries');
+P = m_shaperead('ne_10m_admin_0_countries_lakes');
+% m_proj('oblique mercator','lon',[min(lon_subset) max(lon_subset)],'lat',[min(lat_subset) max(lat_subset)],'direction','vertical','aspect',.5);
+
+% this one for composite maps!
+m_proj('lambert','longitudes',[min_lon max_lon], ...
+           'latitudes',[min_lat max_lat]);%'direction','vertical','aspect',1);
+% m_proj('miller','longitudes',[min_lon max_lon], ...
+           % 'latitudes',[min_lat max_lat]);%'direction','vertical','aspect',1);
+
+% define some colours
+% RGB = [173 216 230]/256;
+RGB_lightblue = [235 256 256]/256;
+RGB_lightgrey = [240 240 240]/256;
+RGB_grey = [211 211 211]/256;
+
+blue = [57 106 177]./255;
+red = [204 37 41]./255;
+black = [83 81 84]./255;
+green = [62 150 81]./255;
+brown = [146 36 40]./255;
+purple = [107 76 154]./255;
+cl_colors = {blue, red, black, ...
+             green, brown, purple};
+cl_str_clr_names = ["blue", "red", "black", "green", "brown", "purple"];
+
+RGB = orderedcolors("gem");
+H = rgb2hex(RGB);
+
+% plot coastline
+m_coast('patch',RGB_lightgrey,'lineWidth',0.5,'edgecolor',RGB_grey);
+hold on
+m_grid;
+
+%***********************************************
+% 1. CFI PI-owned; 2. CFI collaborator-owned;  *
+% 3. Other sites with data publicly available; * 
+% 4. Other sites                               *
+%***********************************************
+
+% non-CFI_PI/non_CFI_collab_PI/non-data sites (i.e. remaining after
+% categories 1, 2, and 3 above
+markerSize_other_nodata = 8;
+for k = 1:length(ind_noAmerifluxData_otherSites)
+    h_other_nodata = m_line(t.Longitude_degrees_(ind_otherSites(ind_noAmerifluxData_otherSites(k))), ...
+                    t.Latitude_degrees_(ind_otherSites(ind_noAmerifluxData_otherSites(k))), ...
+                    'marker','o','markersize',markerSize_other_nodata,'markeredgecolor','k','markerfacecolor','#DADADA','color',[0 0 0]);
+end
+
+% non-CFI_PI/non_CFI_collab_PI sites WITH Ameriflux DATA
+markerSize_other_data = 8;
+for k = 1:length(ind_AmerifluxData_otherSites)
+    h_other_data = m_line(t.Longitude_degrees_(ind_otherSites(ind_AmerifluxData_otherSites(k))), ...
+                    t.Latitude_degrees_(ind_otherSites(ind_AmerifluxData_otherSites(k))), ...
+                    'marker','o','markersize',markerSize_other_data,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
+end
+
+% plot collabs next...
+markerSize_collabs = 10;
+% collaborator sites (ALL)
+for k = 1:length(ind_collab_PIs)
+    h_collab_PIs = m_line(t.Longitude_degrees_(ind_collab_PIs(k)),t.Latitude_degrees_(ind_collab_PIs(k)), ...
+                    'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
+end
+
+% plot CFI PIs
+markerSize_PIs = 12;
+% CFI PI sites (ALL)
+for k = 1:length(ind_CFI_PIs)
+    h_CFI_PIs = m_line(t.Longitude_degrees_(ind_CFI_PIs(k)),t.Latitude_degrees_(ind_CFI_PIs(k)), ...
+                'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
+end
+
+%---------------------------------------------------
+% legend and stats for plotting above categories
+%---------------------------------------------------
+n_totalSites = length(ind_CFI_PIs)+length(ind_collab_PIs)+length(ind_otherSites);
+n_CFI_PIs = length(ind_CFI_PIs);
+percent_CFI_PIs = round((n_CFI_PIs/n_totalSites)*100);
+n_collab_PIs = length(ind_collab_PIs);
+percent_collab_PIs = round((n_collab_PIs/n_totalSites)*100);
+n_otherSites_data = length(ind_AmerifluxData_otherSites);    
+percent_otherSites_data = round((n_otherSites_data/n_totalSites)*100);
+n_otherSites_nodata = length(ind_noAmerifluxData_otherSites);     
+percent_otherSites_nodata = round((n_otherSites_nodata/n_totalSites)*100);
+
+set(h_other_nodata,'linestyle','none')
+set(h_other_data,'linestyle','none')
+set(h_collab_PIs,'linestyle','none')
+set(h_CFI_PIs,'linestyle','none')
+
+legend([h_CFI_PIs h_collab_PIs h_other_data h_other_nodata],{[num2str(n_CFI_PIs) ' CFI PI-owned (' num2str(percent_CFI_PIs) '%)'], ...
+    [num2str(n_collab_PIs) ' CFI collaborator-owned (' num2str(percent_collab_PIs) '%)'], ...
+    [num2str(n_otherSites_data) ' other sites with publicly available data (' num2str(percent_otherSites_data) '%)'], ...
+    [num2str(n_otherSites_nodata) ' remaining sites (' num2str(percent_otherSites_nodata) '%)']},'FontSize',20);
+
+m_text(-32,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
+
+saveplot = 1;
+
+if saveplot == 1
+    filetext = 'CFI_SiteMap_FourCategories';
+    saveplotpath = fullfile(fpath, 'SiteSummary','figures',filetext);
+    type = 'png';
+    im_res = 300;
+    str_save = ['print -d' type ' -r' num2str(im_res) ' ' saveplotpath '.' type];
+    eval(str_save);
+end
+
+%% 1c. Canadian map of flux sites - active vs. inactive
 
 addpath(genpath('/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux'));
 
@@ -570,6 +704,120 @@ legend([h3 h2 h1],{[num2str(n_active) ' reported active (' num2str(percent_activ
     [num2str(n_unknown) ' unknown (' num2str(percent_unknown) '%)'],},'FontSize',20);
 
 m_text(-40,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
+
+saveplot = 1;
+
+if saveplot == 1
+    filetext = 'CFI_SiteMap_ActiveInactiveUnknown';
+    saveplotpath = fullfile(fpath, 'SiteSummary','figures',filetext);
+    type = 'png';
+    im_res = 300;
+    str_save = ['print -d' type ' -r' num2str(im_res) ' ' saveplotpath '.' type];
+    eval(str_save);
+end
+
+%% 1d. Canadian map of ALL flux sites: historical, active, and proposed (i.e. any site we have coordinates for in the site spreadsheet)
+
+addpath(genpath('/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux'));
+
+% load map outline
+figure(1)
+clf;
+set(gcf,'color','white');
+
+min_lat = 40;
+max_lat = 85;
+min_lon = -165;
+max_lon = -45;
+
+% load shapefile
+% M = m_shaperead('geo_political_region_2');
+M_nolakes = m_shaperead('ne_10m_admin_0_countries');
+P = m_shaperead('ne_10m_admin_0_countries_lakes');
+% m_proj('oblique mercator','lon',[min(lon_subset) max(lon_subset)],'lat',[min(lat_subset) max(lat_subset)],'direction','vertical','aspect',.5);
+
+% this one for composite maps!
+m_proj('lambert','longitudes',[min_lon max_lon], ...
+           'latitudes',[min_lat max_lat]);%'direction','vertical','aspect',1);
+% m_proj('miller','longitudes',[min_lon max_lon], ...
+           % 'latitudes',[min_lat max_lat]);%'direction','vertical','aspect',1);
+
+% define some colours
+% RGB = [173 216 230]/256;
+RGB_lightblue = [235 256 256]/256;
+RGB_lightgrey = [240 240 240]/256;
+RGB_grey = [211 211 211]/256;
+
+blue = [57 106 177]./255;
+red = [204 37 41]./255;
+black = [83 81 84]./255;
+green = [62 150 81]./255;
+brown = [146 36 40]./255;
+purple = [107 76 154]./255;
+cl_colors = {blue, red, black, ...
+             green, brown, purple};
+cl_str_clr_names = ["blue", "red", "black", "green", "brown", "purple"];
+
+RGB = orderedcolors("gem");
+H = rgb2hex(RGB);
+
+% plot coastline
+m_coast('patch',RGB_lightgrey,'lineWidth',0.5,'edgecolor',RGB_grey);
+hold on
+m_grid;
+
+%***********************************************
+% All sites! Active, historical, proposed      *
+%***********************************************
+
+% INCLUDES PROPOSED SITES
+% [a,b] = size(x);        
+% markerSize_PIs = 9;
+% % all sites
+% for k = 1:a
+%     h = m_line(x.Longitude_degrees_(k),x.Latitude_degrees_(k), ...
+%                 'marker','o','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
+% end
+
+% DOES NOT INCLUDE PROPOSED SITES
+[a,b] = size(t);        
+markerSize_PIs = 9;
+% all sites
+for k = 1:a
+    h = m_line(t.Longitude_degrees_(k),t.Latitude_degrees_(k), ...
+                'marker','o','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
+end
+
+
+%---------------------------------------------------
+% legend and stats for plotting above categories
+%---------------------------------------------------
+n_totalSites = length(find(~isnan(x.Latitude_degrees_)));
+title([num2str(n_totalSites) ' historical, active, and proposed sites with known coordinates'],'FontSize',28)
+% m_text(-32,65,[num2str(n_totalSites) ' historical, active, and proposel sites with known coordinates'],'FontSize',16)
+% 
+% set(h_other_nodata,'linestyle','none')
+% set(h_other_data,'linestyle','none')
+% set(h_collab_PIs,'linestyle','none')
+% set(h_CFI_PIs,'linestyle','none')
+% 
+% legend([h_CFI_PIs h_collab_PIs h_other_data h_other_nodata],{[num2str(n_CFI_PIs) ' CFI PI-owned (' num2str(percent_CFI_PIs) '%)'], ...
+%     [num2str(n_collab_PIs) ' CFI collaborator-owned (' num2str(percent_collab_PIs) '%)'], ...
+%     [num2str(n_otherSites_data) ' other sites with publicly available data (' num2str(percent_otherSites_data) '%)'], ...
+%     [num2str(n_otherSites_nodata) ' remaining sites (' num2str(percent_otherSites_nodata) '%)']},'FontSize',20);
+% 
+% m_text(-32,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
+
+saveplot = 1;
+
+if saveplot == 1
+    filetext = 'CFI_SiteMap_ALL_HistoricalActive_ZeroProposed';
+    saveplotpath = fullfile(fpath, 'SiteSummary','figures',filetext);
+    type = 'png';
+    im_res = 300;
+    str_save = ['print -d' type ' -r' num2str(im_res) ' ' saveplotpath '.' type];
+    eval(str_save);
+end
 
 %% 2. For mapping by ecosystem: alternative way to load from spreadsheet table
 
@@ -1236,7 +1484,7 @@ l = legend(h,Ecos,'FontSize',14,'location','northwest');
 l.Direction = 'Reverse';
 
 
-%% 11. Economical analysis (very rough!)
+%% 11a. Economical analysis (very rough!)
 
 % EC flux site approximate costs
 cost_both_CO2_CH4_upper = 450000;        % approximate upper bound cost for EC site measuring both CO2 and CH4
@@ -1308,18 +1556,22 @@ ind_Flux_CO2_CH4 = ind_CO2 & ind_CH4;
 ind_array_CO2_CH4 = find(ind_Flux_CO2_CH4);
 numFluxCO2_CH4 = sum(ind_Flux_CO2_CH4);
 
-numSites = length(allFluxes) - 3;
-numSitesUnknown = numSites - numFluxCO2_CH4 - numCO2_only;
+numSites = length(allFluxes) - 3;   % remove rows with text (not sites)
+numSitesFluxesUnknown = numSites - numFluxCO2_CH4 - numCO2_only;
+numSitesFluxesKnown = numSites - numSitesFluxesUnknown;
 
 % estimate cost ranges
 % total upper bound = (num. CO2 only * cost of CO2_upper) + (num. CO2_CH4 * cost of CO2_CH4_upper) + numCO2_CH4 
 % total lower bound = numCO2_only*costCO2_lower + numCO2_CH4*cost_CO2_CH4_lower
 
-% upper total cost estimate for both CO2 and CH4 sites, assuming ratio of
-% CO2+CH4:CO2_only is 1:3 (based on existing ratio)
+% upper total cost estimate for both CO2 and CH4 sites 
+% did not use this existing_ratio
+% % assuming ratio of
+% % CO2+CH4:CO2_only:
+% existing_ratio_co2ch4Toco2_only = numFluxCO2_CH4/numCO2_only;
 
-ratio_CO2_CH4 = 41/113;     % "likelihood" of unknown sites being CO2 and CH4
-ratio_CO2_only = 72/113;    % "likelihood" of unknown sites being CO2 only
+ratio_CO2_CH4 = numFluxCO2_CH4/numSitesFluxesKnown;     % "likelihood" of unknown sites being CO2 and CH4
+ratio_CO2_only = numCO2_only/numSitesFluxesKnown;    % "likelihood" of unknown sites being CO2 only
 
 total_cost_CO2_CH4_upper = cost_both_CO2_CH4_upper * numFluxCO2_CH4;      % total cost of all CO2+CH4 sites, at upper price
 total_cost_CO2_CH4_lower = cost_both_CO2_CH4_lower * numFluxCO2_CH4;      % total cost of all CO2+CH4 sites, at lower price
@@ -1327,11 +1579,11 @@ total_cost_CO2_CH4_lower = cost_both_CO2_CH4_lower * numFluxCO2_CH4;      % tota
 total_cost_CO2_only_upper = cost_only_CO2_upper * numCO2_only;            % total cost of all CO2 only sites, at upper price
 total_cost_CO2_only_lower = cost_only_CO2_lower * numCO2_only;            % total cost of all CO2 only sites at upper price
 
-total_cost_unknown_CO2_CH4_upper = cost_both_CO2_CH4_upper * (numSitesUnknown*ratio_CO2_CH4);   % estimated cost of unknown sites likely to have CH4+CO2, at upper price
-total_cost_unknown_CO2_CH4_lower = cost_both_CO2_CH4_lower * (numSitesUnknown*ratio_CO2_CH4);   % estimated cost of unknown sites likely to have CH4+CO2, at lower price
+total_cost_unknown_CO2_CH4_upper = cost_both_CO2_CH4_upper * (numSitesFluxesUnknown*ratio_CO2_CH4);   % estimated cost of unknown sites likely to have CH4+CO2, at upper price
+total_cost_unknown_CO2_CH4_lower = cost_both_CO2_CH4_lower * (numSitesFluxesUnknown*ratio_CO2_CH4);   % estimated cost of unknown sites likely to have CH4+CO2, at lower price
 
-total_cost_unknown_CO2_only_upper = cost_only_CO2_upper * (numSitesUnknown*ratio_CO2_only);     % estimated cost of unknown sites likely to have CO2 only, at upper price
-total_cost_unknown_CO2_only_lower = cost_only_CO2_lower * (numSitesUnknown*ratio_CO2_only);     % estimated cost of unknown sites likely to have CO2 only, at lower price
+total_cost_unknown_CO2_only_upper = cost_only_CO2_upper * (numSitesFluxesUnknown*ratio_CO2_only);     % estimated cost of unknown sites likely to have CO2 only, at upper price
+total_cost_unknown_CO2_only_lower = cost_only_CO2_lower * (numSitesFluxesUnknown*ratio_CO2_only);     % estimated cost of unknown sites likely to have CO2 only, at lower price
 
 % total upper and lower costs
 total_cost_upper = total_cost_CO2_CH4_upper + total_cost_CO2_only_upper ...
@@ -1341,6 +1593,36 @@ total_cost_upper = total_cost_upper*(1e-6);     % convert to millions
 total_cost_lower = total_cost_CO2_CH4_lower + total_cost_CO2_only_lower ...
                     + total_cost_unknown_CO2_CH4_lower + total_cost_unknown_CO2_only_lower;
 total_cost_lower = total_cost_lower*(1e-6);     % convert to millions
+
+%% 11b. Economical analysis continued... for CFI PI/CFI collaborators/historical with data sites
+
+% find CFI PIs sites: (1) CO2/CH4 upper/lower, (2) CO2 only upper/lower
+% find collaborator sites: (1) CO2/CH4 upper/lower, (2) CO2 only upper/lower
+% find other sites with available data: (1) CO2/CH4 upper/lower, (2) CO2 only upper/lower
+
+ind_CFI_PI_CO2_CH4 = intersect(ind_CFI_PIs,find(ind_Flux_CO2_CH4 == 1));
+ind_CFI_PI_CO2_only = intersect(ind_CFI_PIs,ind_CO2_only);
+
+ind_collab_CO2_CH4 = intersect(ind_collab_PIs,find(ind_Flux_CO2_CH4 == 1));
+ind_collab_CO2_only = intersect(ind_collab_PIs,ind_CO2_only);
+
+ind_other_data_CO2_CH4 = intersect(ind_otherSites(ind_AmerifluxData_otherSites),find(ind_Flux_CO2_CH4 == 1));
+ind_other_data_CO2_only = intersect(ind_otherSites(ind_AmerifluxData_otherSites),ind_CO2_only);
+
+% known costs - we know all fluxes measured at all CFI PI sites
+total_cost_CFI_PI_upper = (length(ind_CFI_PI_CO2_CH4) * cost_both_CO2_CH4_upper)/1e6;
+total_cost_CFI_PI_lower = (length(ind_CFI_PI_CO2_only) * cost_only_CO2_lower)/1e6;
+
+% estimated costs - we do NOT know all fluxes measured at all collaborator sites
+total_cost_collab_upper = length(ind_collab_PIs) * cost_both_CO2_CH4_upper/1e6;
+total_cost_collab_lower = length(ind_collab_PIs) * cost_only_CO2_lower/1e6;
+
+% estimated costs - we do NOT know all fluxes measured at all other sites with publicly available data
+% but all except one site (unknown) measures only CO2 (older sites), let's
+% assume the remaining one does too
+total_cost_other_data_upper = length(ind_other_data_CO2_only) * cost_both_CO2_CH4_upper/1e6;
+total_cost_other_data_lower = length(ind_other_data_CO2_only) * cost_only_CO2_lower/1e6;
+
 
 %% 12. plot categorical bar chart with PIs/collabs/other sites and data vs. no data
 
