@@ -25,24 +25,24 @@
 %% 0. Extract data from TSV file
 clear;
 fpath = '/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux';
-% fname = 'AmeriFlux-sites-CanadianORIGDOWNLOAD_19August2025.tsv';    % Ameriflux data
+% fname = 'AmeriFlux-sites-CanadianORIGDOWNLOAD_19August2025.tsv';    % Ameriflux data; original download
 % fname_3Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet3Oct2025_withLatLons.tsv';   % only sites with LatLons
 % fname_7Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet7Oct2025_edited.tsv';     % Ameriflux + self-reported
 % fname_21Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet21Oct2025.tsv';     % Ameriflux + self-reported
 % fname_28Nov2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet28Nov2025.tsv';     % Ameriflux + self-reported
 % fname_6Feb2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet6Feb2026.tsv';     % Ameriflux + self-reported
 % fname_10Feb2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet10Feb2026_NotIncludingProposedSites.tsv';   % Ameriflux + self-reported (not including proposed sites) -> presented on Can-Peat 2026 poster
-fname_20Feb2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet20Feb2026_NotIncludingProposedSites.tsv';   % Ameriflux + self-reported (not including proposed sites) -> for CFI proposal
+% fname_20Feb2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet20Feb2026_NotIncludingProposedSites.tsv';   % Ameriflux + self-reported (not including proposed sites) -> for CFI proposal
+
+fname_18Nov2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet18Nov2026_NotIncludingProposedSites.tsv';   % Ameriflux + self-reported (not including proposed sites) -> for CFI proposal
+w = warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');
+t = readtable(fullfile(fpath,fname_18Nov2026), "FileType","text",'Delimiter', '\t');                    % does not include proposed towers
 
 fname_ORIG_17Sept2025 = 'Canadian-Flux-Sites_17Sept2025_ORIG_forComparison.tsv';
-
-fname_25Feb2026_incProposedSites = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet25Feb2026_IncludingProposedSites.tsv';
-
-w = warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');
-% p = readtable(fullfile(fpath,fname), "FileType","text",'Delimiter', '\t');
-t = readtable(fullfile(fpath,fname_20Feb2026), "FileType","text",'Delimiter', '\t');                    % does not include proposed towers
 v = readtable(fullfile(fpath,fname_ORIG_17Sept2025), "FileType","text",'Delimiter', '\t');
-x = readtable(fullfile(fpath,fname_25Feb2026_incProposedSites), "FileType","text",'Delimiter', '\t');   % includes proposed towers
+
+fname_18Nov2026_incProposedSites = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet18Nov2026_IncludingProposedSites.tsv';
+x = readtable(fullfile(fpath,fname_18Nov2026_incProposedSites), "FileType","text",'Delimiter', '\t');   % includes proposed towers
 
 % fname_Baldocchi = 'CanadianSites_Baldocchi2025.csv';
 % t = readtable(fullfile(fpath,fname_Baldocchi),'Delimiter', ',');
@@ -207,11 +207,25 @@ n_nodata = length(ind_noAmerifluxData_CFI_PIs)+length(ind_noAmerifluxData_collab
 
 %% active vs. historical vs. unknown (plotting in 1c below)
 
-ind_activeSites = find(t.ActiveSite == 1);
-ind_inactiveSites = find(t.ActiveSite == 0);
-ind_unknown = find(isnan(t.ActiveSite));
+activeSitesCol = t.ActiveSite;
+
+activeUnknown = isnan(activeSitesCol);
+n_activeUnknown = sum(activeUnknown) - 2;    % subtract 2 for the subheaders in column 1 (siteID)
+ind_activeUnknown = find(activeUnknown);     % includes indices for rows with subheaders in column 1 (siteID)
+ind = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+ind_remove = find(ind_activeUnknown == ind);
+ind_activeUnknown(ind_remove) = [];
+ind_activeUnknown(1) = [];
+
+
+ind_activeSites = find(activeSitesCol > 0);
+n_activeSites = length(ind_activeSites);
+
+ind_inactiveSites = find(activeSitesCol == 0);
+n_inactiveSites = length(ind_inactiveSites);
 
 ind_nocoords = find(isnan(t.Latitude_degrees_));
+% ind_nocoords = find(isnan(t.Latitude_degrees_));
 
 % remove site listings if lat/lon doesn't exist (for all categories)
 common_values = intersect(ind_activeSites,ind_nocoords);
@@ -219,6 +233,7 @@ for i = 1:length(common_values)
     mask = (ind_activeSites ~= common_values(i));
     ind_activeSites = ind_activeSites(mask);
 end
+n_activeSites_WithCoords = length(ind_activeSites);
 
 % remove site listings if lat/lon doesn't exist (for all categories)
 common_values = intersect(ind_inactiveSites,ind_nocoords);
@@ -226,13 +241,15 @@ for i = 1:length(common_values)
     mask = (ind_inactiveSites ~= common_values(i));
     ind_inactiveSites = ind_inactiveSites(mask);
 end
+n_inactiveSites_WithCoords = length(ind_inactiveSites);
 
 % remove site listings if lat/lon doesn't exist (for all categories)
-common_values = intersect(ind_unknown,ind_nocoords);
+common_values = intersect(ind_activeUnknown,ind_nocoords);
 for i = 1:length(common_values)
-    mask = (ind_unknown ~= common_values(i));
-    ind_unknown = ind_unknown(mask);
+    mask = (ind_activeUnknown ~= common_values(i));
+    ind_activeUnknown = ind_activeUnknown(mask);
 end
+n_activeUnknown_WithCoords = length(ind_activeUnknown);
 
 
 %% PLOTTING BEGINS HERE
@@ -242,6 +259,8 @@ end
 % These will need updating as sites are added etc.
 
 addpath(genpath('/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux'));
+
+saveplot = 0;   % 0 = no, 1 = yes
 
 % load map outline
 figure(1)
@@ -270,6 +289,7 @@ m_proj('lambert','longitudes',[min_lon max_lon], ...
 RGB_lightblue = [235 256 256]/256;
 RGB_lightgrey = [240 240 240]/256;
 RGB_grey = [211 211 211]/256;
+RGB_darkgrey = [71 71 71]/256;
 
 blue = [57 106 177]./255;
 red = [204 37 41]./255;
@@ -285,7 +305,8 @@ RGB = orderedcolors("gem");
 H = rgb2hex(RGB);
 
 % plot coastline
-m_coast('patch',RGB_lightgrey,'lineWidth',0.5,'edgecolor',RGB_grey);
+m_coast('patch',RGB_grey,'lineWidth',0.5,'edgecolor',RGB_darkgrey);
+% m_coast('patch',RGB_lightgrey,'lineWidth',0.5,'edgecolor',RGB_grey);
 hold on
 m_grid;
 
@@ -304,34 +325,76 @@ m_grid;
 % % load site lat/lons
 % load("BaldocchiLatLons.mat");
 % % load("siteLatLons.mat");    % old - not sustainable, to many steps to update, read directly from downloaded table instead :)
-% 
-% [a,b] = size(t);
-% ind = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+
+%------------------------------------------------------------------------
+% % spreadsheet 'x' includes proposed sites
+% [a,b] = size(x);        
+% ind1 = find(strcmp(x.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+% ind2 = find(strcmp(x.AmerifluxSiteID,'Proposed sites'));   % identify index dividing non-Ameriflux sites and proposed sites in spreadsheet
 % 
 % markerSize = 9;
 % % Ameriflux sites
-% for k = 1:ind-1
-%     h1 = m_line(t.Longitude_degrees_(k),t.Latitude_degrees_(k),'marker','^','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
+% for k = 1:ind1-1
+%     h1 = m_line(x.Longitude_degrees_(k),x.Latitude_degrees_(k),'marker','^','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
 % end
 % 
 % % non-Ameriflux sites
-% for k = ind+1:a
-%     h2 = m_line(t.Longitude_degrees_(k),t.Latitude_degrees_(k),'marker','o','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
+% for k = ind1+1:ind2-1
+%     h2 = m_line(x.Longitude_degrees_(k),x.Latitude_degrees_(k),'marker','o','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
 % end
 % 
-% n_Ameriflux = length(find(~isnan(t.Latitude_degrees_(1:ind-1))));
-% n_nonAmeriflux = length(find(~isnan(t.Latitude_degrees_(ind+1:a))));
+% % proposed sites
+% for k = ind2+1:a
+%     h3 = m_line(x.Longitude_degrees_(k),x.Latitude_degrees_(k),'marker','*','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
+% end
+% 
+% n_Ameriflux = length(find(~isnan(x.Latitude_degrees_(1:ind1-1))));
+% n_nonAmeriflux = length(find(~isnan(x.Latitude_degrees_(ind1+1:ind2-1))));
+% n_proposed = length(find(~isnan(x.Latitude_degrees_(ind2+1:a))));
+% n_totalSites = n_Ameriflux + n_nonAmeriflux + n_proposed;
 % 
 % set(h1,'linestyle','none')
 % set(h2,'linestyle','none')
-% legend([h1 h2],{['Registered on Ameriflux (' num2str(n_Ameriflux) ')'],['Other Sites (' num2str(n_nonAmeriflux) ')']},'FontSize',20)
+% set(h3,'linestyle','none')
+% legend([h1 h2 h3],{['Registered on Ameriflux (' num2str(n_Ameriflux) ')'],['Other Sites (' num2str(n_nonAmeriflux) ')'],['Proposed Sites (' num2str(n_proposed) ')']},'FontSize',20)
+% 
+% m_text(-40,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
 
-% plot "other" site first so they appear at back
-markerSize_other = 8;
-% remaining sites (ALL)
-for k = 1:length(ind_otherSites)
-    h3 = m_line(t.Longitude_degrees_(ind_otherSites(k)),t.Latitude_degrees_(ind_otherSites(k)),'marker','o','markersize',markerSize_other,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
+%------------------------------------------------------------------------
+% same as above but using spreadsheet 't' - does not include proposed sites
+[a,b] = size(t);
+ind = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+
+markerSize = 9;
+% Ameriflux sites
+for k = 1:ind-1
+    h1 = m_line(t.Longitude_degrees_(k),t.Latitude_degrees_(k),'marker','^','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
 end
+
+% non-Ameriflux sites
+for k = ind+1:a
+    h2 = m_line(t.Longitude_degrees_(k),t.Latitude_degrees_(k),'marker','o','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
+end
+
+n_Ameriflux = length(find(~isnan(t.Latitude_degrees_(1:ind-1))));
+n_nonAmeriflux = length(find(~isnan(t.Latitude_degrees_(ind+1:a))));
+n_totalSites = n_Ameriflux + n_nonAmeriflux;
+
+set(h1,'linestyle','none')
+set(h2,'linestyle','none')
+legend([h1 h2],{['Registered on Ameriflux (' num2str(n_Ameriflux) ')'],['Other Sites (' num2str(n_nonAmeriflux) ')']},'FontSize',20)
+
+m_text(-40,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
+
+
+%------------------------------------------------------------------------
+% plotting for CFI proposal
+% plot "other" site first so they appear at back
+% markerSize_other = 8;
+% remaining sites (ALL)
+%for k = 1:length(ind_otherSites)
+%    h3 = m_line(t.Longitude_degrees_(ind_otherSites(k)),t.Latitude_degrees_(ind_otherSites(k)),'marker','o','markersize',markerSize_other,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
+%end
 % remaining sites wth NO Ameriflux data
 % for k = 1:length(ind_noAmerifluxData_otherSites)
 %     h3_nodata = m_line(t.Longitude_degrees_(ind_otherSites(ind_noAmerifluxData_otherSites(k))), ...
@@ -346,11 +409,11 @@ end
 % end
 
 % plot collabs next...
-markerSize_collabs = 10;
+%markerSize_collabs = 10;
 % collaborator sites (ALL)
-for k = 1:length(ind_collab_PIs)
-    h2 = m_line(t.Longitude_degrees_(ind_collab_PIs(k)),t.Latitude_degrees_(ind_collab_PIs(k)),'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
-end
+%for k = 1:length(ind_collab_PIs)
+%    h2 = m_line(t.Longitude_degrees_(ind_collab_PIs(k)),t.Latitude_degrees_(ind_collab_PIs(k)),'marker','v','markersize',markerSize_collabs,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
+%end
 % collaborator sites with NO Ameriflux Data
 % for k = 1:length(ind_noAmerifluxData_collabs)
 %     h2_nodata = m_line(t.Longitude_degrees_(ind_collab_PIs(ind_noAmerifluxData_collabs(k))), ...
@@ -365,11 +428,11 @@ end
 % end
 
 % plot CFI PIs
-markerSize_PIs = 12;
+%markerSize_PIs = 12;
 % CFI PI sites (ALL)
-for k = 1:length(ind_CFI_PIs)
-    h1 = m_line(t.Longitude_degrees_(ind_CFI_PIs(k)),t.Latitude_degrees_(ind_CFI_PIs(k)),'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
-end
+%for k = 1:length(ind_CFI_PIs)
+%    h1 = m_line(t.Longitude_degrees_(ind_CFI_PIs(k)),t.Latitude_degrees_(ind_CFI_PIs(k)),'marker','^','markersize',markerSize_PIs,'markeredgecolor','k','markerfacecolor','#ff1493','color',[0 0 0]);
+%end
 % CFI PI sites WITH NO AMERIFLUX DATA
 % for k = 1:length(ind_noAmerifluxData_CFI_PIs)
 %     h1_nodata = m_line(t.Longitude_degrees_(ind_CFI_PIs(ind_noAmerifluxData_CFI_PIs(k))), ...
@@ -439,23 +502,23 @@ end
 %---------------------------------------------------
 % legend and stats for plotting all sites (no data categories)
 %---------------------------------------------------
-n_totalSites = length(ind_CFI_PIs)+length(ind_collab_PIs)+length(ind_otherSites);
-n_CFI_PIs = length(ind_CFI_PIs);
-percent_CFI_PIs = round((n_CFI_PIs/n_totalSites)*100);
-n_collab_PIs = length(ind_collab_PIs);
-percent_collab_PIs = round((n_collab_PIs/n_totalSites)*100);
-n_otherSites = length(ind_otherSites);
-percent_otherSites = round((n_otherSites/n_totalSites)*100);
-
-set(h1,'linestyle','none')
-set(h2,'linestyle','none')
-set(h3,'linestyle','none')
-% set(d,'linestyle','none')
-legend([h1 h2 h3],{[num2str(n_CFI_PIs) ' CFI PI-owned (' num2str(percent_CFI_PIs) '%)'], ...
-    [num2str(n_collab_PIs) ' CFI collaborator-owned (' num2str(percent_collab_PIs) '%)'], ...
-    [num2str(n_otherSites) ' Other Sites (' num2str(percent_otherSites) '%)']},'FontSize',20);
-
-m_text(-32,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
+% n_totalSites = length(ind_CFI_PIs)+length(ind_collab_PIs)+length(ind_otherSites);
+% n_CFI_PIs = length(ind_CFI_PIs);
+% percent_CFI_PIs = round((n_CFI_PIs/n_totalSites)*100);
+% n_collab_PIs = length(ind_collab_PIs);
+% percent_collab_PIs = round((n_collab_PIs/n_totalSites)*100);
+% n_otherSites = length(ind_otherSites);
+% percent_otherSites = round((n_otherSites/n_totalSites)*100);
+% 
+% set(h1,'linestyle','none')
+% set(h2,'linestyle','none')
+% set(h3,'linestyle','none')
+% % set(d,'linestyle','none')
+% legend([h1 h2 h3],{[num2str(n_CFI_PIs) ' CFI PI-owned (' num2str(percent_CFI_PIs) '%)'], ...
+%     [num2str(n_collab_PIs) ' CFI collaborator-owned (' num2str(percent_collab_PIs) '%)'], ...
+%     [num2str(n_otherSites) ' Other Sites (' num2str(percent_otherSites) '%)']},'FontSize',20);
+% 
+% m_text(-32,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize',16)
 
 
 
@@ -476,10 +539,8 @@ m_text(-32,65,[num2str(n_totalSites) ' sites with known coordinates'],'FontSize'
 %     h2 = m_line(siteLatLons_nonAmeriflux(k,2),siteLatLons_nonAmeriflux(k,1),'marker','o','markersize',8,'markeredgecolor','k','markerfacecolor','#01c9fc','color',[0 0 0]);
 % end
 
-saveplot = 0;
-
 if saveplot == 1
-    filetext = 'CFI_SiteMap_OwnershipCategories';
+    filetext = '1a_CanadianFluxSites_SiteSummary_simple';
     saveplotpath = fullfile(fpath, 'SiteSummary','figures',filetext);
     type = 'png';
     im_res = 300;
@@ -666,19 +727,19 @@ m_grid;
 % Active vs. inactive vs. unknown sites *
 %****************************************
 
-markerSize = 8;
+markerSize = 9;
 % Unknown sites (don't know if they are active or inactive)
 for k = 1:length(ind_unknown)
     h1 = m_line(t.Longitude_degrees_(ind_unknown(k)),t.Latitude_degrees_(ind_unknown(k)),'marker','*','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#6a6a6a','color',[0 0 0]);
 end
 
-markerSize = 10;
+markerSize = 11;
 % inactive sites
 for k = 1:length(ind_inactiveSites)
     h2 = m_line(t.Longitude_degrees_(ind_inactiveSites(k)),t.Latitude_degrees_(ind_inactiveSites(k)),'marker','square','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#6F0000','color',[0 0 0]);
 end
 
-markerSize = 10;
+markerSize = 11;
 % Active sites
 for k = 1:length(ind_activeSites)
     h3 = m_line(t.Longitude_degrees_(ind_activeSites(k)),t.Latitude_degrees_(ind_activeSites(k)),'marker','o','markersize',markerSize,'markeredgecolor','k','markerfacecolor','#5EBB66','color',[0 0 0]);
@@ -821,7 +882,7 @@ end
 
 %% 2. For mapping by ecosystem: alternative way to load from spreadsheet table
 
-%**** Works with 28 Nov spreadsheet *********
+%**** Works with 28 Nov 2025 spreadsheet *********
 % only for Ameriflux-defined sites currently...
 
 
@@ -1276,6 +1337,36 @@ ylabel('Number of sites','FontSize',18)
 % ylabel('Frequency','FontSize',18)
 title('Length of dataset in years','FontSize',18)
 % title('Sites with BASE data by length of dataset','FontSize',18)
+
+
+% plot years of data on map (where known)
+
+[a,b] = size(t);
+ind = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+AmerifluxVsNon = ones(a,1);
+AmerifluxVsNon(ind:end,1) = 0;
+
+DataEnd = NaN(a,1);
+for i = 1:a
+    if ~isempty(t.DataEnd(i))
+        DataEnd(i) = str2double(t.DataEnd(i));
+    end
+end
+recordLength = DataEnd - t.DataStart + 1;
+
+% Create a table (recommended for geobubble)
+SiteYears_Ameriflux = table(t.Latitude_degrees_, t.Longitude_degrees_, t.NumberOfYearsOfAmeriFluxBASEData, AmerifluxVsNon, 'VariableNames', {'Lat', 'Lon', 'SiteYears','AmerifluxVsNon'});
+
+% Plot as a geographic bubble chart
+figure;
+gb = geobubble(SiteYears_Ameriflux, 'Lat', 'Lon', 'SizeVariable', 'SiteYears','ColorVariable','AmerifluxVsNon');
+% gb = geobubble(SiteYears_Ameriflux, 'Var1', 'Var2', ...
+    % 'SizeVariable','Var3','ColorVariable','Cause');
+geolimits([40 75],[-140 -50]);
+
+% Optional: Customize the basemap
+geobasemap colorterrain
+geobasemap('streets-light');
 
 
 %% 9. Plot years of data

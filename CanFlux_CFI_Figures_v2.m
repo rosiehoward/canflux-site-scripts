@@ -1,0 +1,531 @@
+% CanFlux_CFI_Figures_v2.m
+%
+% Largely based on createCAFluxSiteMap.m
+%
+% Rosie Howard
+% 18 November 2026
+
+% Section list:
+%   0. Extract data from relevant spreadsheet
+%   1. Find active vs. historical vs. known
+%   2a. Network (Ameriflux)
+%   2b. BASE data (on Ameriflux)
+%   2c. Processing (FLUXNET)
+%   3. Plotting for figure 4 (CFI): Flux site with Ameriflux/FLUXNET and active/inactive info
+%   4. Plotting for figure 5 (CFI): (a) Ecosystems type and reported operating status; (b) Data visibility and gas species coverage.
+
+
+%% 0. Extract data from TSV file
+clear;
+fpath = '/Users/rosie/Documents/Micromet/CANFLUX_Database/Canadian_Flux_Sites/CanFlux';
+% fname = 'AmeriFlux-sites-CanadianORIGDOWNLOAD_19August2025.tsv';    % Ameriflux data; original download
+% fname_3Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet3Oct2025_withLatLons.tsv';   % only sites with LatLons
+% fname_7Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet7Oct2025_edited.tsv';     % Ameriflux + self-reported
+% fname_21Oct2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet21Oct2025.tsv';     % Ameriflux + self-reported
+% fname_28Nov2025 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet28Nov2025.tsv';     % Ameriflux + self-reported
+% fname_6Feb2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet6Feb2026.tsv';     % Ameriflux + self-reported
+% fname_10Feb2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet10Feb2026_NotIncludingProposedSites.tsv';   % Ameriflux + self-reported (not including proposed sites) -> presented on Can-Peat 2026 poster
+% fname_20Feb2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet20Feb2026_NotIncludingProposedSites.tsv';   % Ameriflux + self-reported (not including proposed sites) -> for CFI proposal
+
+fname_18Nov2026 = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet18Nov2026_NotIncludingProposedSites.tsv';   % Ameriflux + self-reported (not including proposed sites) -> for CFI proposal
+w = warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');
+t = readtable(fullfile(fpath,fname_18Nov2026), "FileType","text",'Delimiter', '\t');                    % does not include proposed towers
+
+fname_ORIG_17Sept2025 = 'Canadian-Flux-Sites_17Sept2025_ORIG_forComparison.tsv';
+v = readtable(fullfile(fpath,fname_ORIG_17Sept2025), "FileType","text",'Delimiter', '\t');
+
+fname_18Nov2026_incProposedSites = 'Canadian-Flux-Sites_DownloadedFromGoogleSheet18Nov2026_IncludingProposedSites.tsv';
+x = readtable(fullfile(fpath,fname_18Nov2026_incProposedSites), "FileType","text",'Delimiter', '\t');   % includes proposed towers
+
+% fname_Baldocchi = 'CanadianSites_Baldocchi2025.csv';
+% t = readtable(fullfile(fpath,fname_Baldocchi),'Delimiter', ',');
+
+addpath(genpath(fpath));
+
+
+%% 1. Find active vs. historical vs. unknown 
+
+activeSitesCol = t.ActiveSite;
+
+activeUnknown = isnan(activeSitesCol);
+n_activeUnknown = sum(activeUnknown) - 2;    % subtract 2 for the subheaders in column 1 (siteID)
+ind_activeUnknown = find(activeUnknown);     % includes indices for rows with subheaders in column 1 (siteID)
+ind = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+ind_remove = ind_activeUnknown == ind;
+ind_activeUnknown(ind_remove) = [];
+ind_activeUnknown(1) = [];
+
+ind_activeSites = find(activeSitesCol > 0);
+n_activeSites = length(ind_activeSites);
+
+ind_inactiveSites = find(activeSitesCol == 0);
+n_inactiveSites = length(ind_inactiveSites);
+
+ind_nocoords = find(isnan(t.Latitude_degrees_));
+% ind_nocoords = find(isnan(t.Latitude_degrees_));
+
+% remove site listings if lat/lon doesn't exist (for all categories)
+common_values = intersect(ind_activeSites,ind_nocoords);
+for i = 1:length(common_values)
+    mask = (ind_activeSites ~= common_values(i));
+    ind_activeSites = ind_activeSites(mask);
+end
+n_activeSites_WithCoords = length(ind_activeSites);
+
+% remove site listings if lat/lon doesn't exist (for all categories)
+common_values = intersect(ind_inactiveSites,ind_nocoords);
+for i = 1:length(common_values)
+    mask = (ind_inactiveSites ~= common_values(i));
+    ind_inactiveSites = ind_inactiveSites(mask);
+end
+n_inactiveSites_WithCoords = length(ind_inactiveSites);
+
+% remove site listings if lat/lon doesn't exist (for all categories)
+common_values = intersect(ind_activeUnknown,ind_nocoords);
+for i = 1:length(common_values)
+    mask = (ind_activeUnknown ~= common_values(i));
+    ind_activeUnknown = ind_activeUnknown(mask);
+end
+n_activeUnknown_WithCoords = length(ind_activeUnknown);
+
+
+%% 2. Network, processing, and data (registered on Ameriflux/FLUXNET-processed/has data on Ameriflux)
+
+% 2a. Ameriflux
+[a,b] = size(t);
+ind_divide = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+
+ind_Ameriflux = 2:ind_divide-1;    % start at second index, until one before the dividing subheader
+ind_nonAmeriflux = ind_divide+1:a;
+
+n_Ameriflux = length(ind_Ameriflux);
+n_nonAmeriflux = length(ind_nonAmeriflux);
+% check
+n_totalSites = n_Ameriflux + n_nonAmeriflux;
+
+n_Ameriflux_WithCoords = length(find(~isnan(t.Latitude_degrees_(1:ind_divide-1))));
+n_nonAmeriflux_WithCoords = length(find(~isnan(t.Latitude_degrees_(ind_divide+1:a))));
+% check
+% n_totalSites_WithCoords = n_Ameriflux_WithCoords + n_nonAmeriflux_WithCoords;
+
+%% 2b. BASE data on Ameriflux
+
+% these should all have coords since they will be on Ameriflux by definition
+% sites with data
+ind_Ameriflux_BASE = find(~isnan(t.AmeriFluxBASEDataStart));
+n_Ameriflux_BASE = length(ind_Ameriflux_BASE);
+
+ind_Ameriflux_noBASE = find(isnan(t.AmeriFluxBASEDataStart(ind_Ameriflux)));
+n_Ameriflux_noBASE = length(ind_Ameriflux_noBASE);
+% check
+% n_BASE_noBASE = n_Ameriflux_BASE + n_Ameriflux_noBASE;
+
+%% 2c. FLUXNET
+
+% these should all have coords since they will be on Ameriflux by
+% definition, and also all be a subset of the BASE data indices
+ind_Ameriflux_Fluxnet = find(~isnan(t.AmeriFluxFLUXNETDataStart));
+n_Ameriflux_Fluxnet = length(ind_Ameriflux_Fluxnet);
+
+ind_Ameriflux_noFluxnet = find(isnan(t.AmeriFluxFLUXNETDataStart(ind_Ameriflux)));
+n_Ameriflux_noFluxnet = length(ind_Ameriflux_noFluxnet);
+% check
+% n_Fluxnet_noFluxnet = n_Ameriflux_Fluxnet + n_Ameriflux_noFluxnet;
+
+
+
+%% PLOTTING BEGINS HERE
+
+%% 3. FIGURE 4: Canadian map of flux sites
+
+% FIRST, run sections 1 and 2
+
+% Automatically download Natural Earth national boundaries (only runs
+% once) - DONE
+shpFile = 'ne_50m_admin_0_countries.shp';
+outputFolder = fullfile(fpath,'map_data');
+% if ~isfile(fullfile(outputFolder,shpFile))
+%     disp('Downloading Natural Earth country boundaries...');
+%     url = 'https://naciscdn.org';
+%     zipFile = 'ne_countries.zip';
+%     websave(zipFile, url);
+%     unzip(zipFile,outputFolder);
+%     delete(zipFile);
+% end
+
+% define some colours
+% RGB = [173 216 230]/256;
+RGB_lightblue = [235 256 256]/256;
+RGB_lightgrey = [240 240 240]/256;
+RGB_midgrey = [225 225 225]/256;
+RGB_grey = [211 211 211]/256;
+RGB_darkgrey = [71 71 71]/256;
+
+blue = [57 106 177]./255;
+red = [204 37 41]./255;
+black = [83 81 84]./255;
+green = [62 150 81]./255;
+brown = [146 36 40]./255;
+purple = [107 76 154]./255;
+cl_colors = {blue, red, black, ...
+             green, brown, purple};
+cl_str_clr_names = ["blue", "red", "black", "green", "brown", "purple"];
+
+RGB = orderedcolors("gem");
+H = rgb2hex(RGB);
+
+% set up figure and Lambert Conformal Conic projection (R2024a)
+% close all;
+fig = figure(100);
+clf(fig);
+set(fig, 'Color', 'w', 'Position', [100 100 800 650]);
+ax = axesm('lambert', ...
+    'MapLatLimit', [41 81], ...
+    'MapLonLimit', [-150 -40], ...
+    'Origin', [0 -90 0], ...
+    'Frame', 'off', ...
+    'Grid', 'off', ...
+    'MeridianLabel', 'off', ...
+    'ParallelLabel', 'off', ...
+    'GColor', [0.8 0.8 0.8], ...
+    'GLineStyle', ':');
+
+% ax = axesm('lambert', ...
+%     'MapLatLimit', [41 81], ...
+%     'MapLonLimit', [-142 -52], ...
+%     'Origin', [0 -90 0], ...
+%     'Frame', 'on', ...
+%     'FLineWidth',2,...
+%     'Grid', 'on', ...
+%     'MeridianLabel', 'on', ...
+%     'ParallelLabel', 'on', ...
+%     'MLabelParallel', 'south', ...
+%     'PLabelMeridian', 'east', ...
+%     'GColor', [0.8 0.8 0.8], ...
+%     'GLineStyle', ':');
+
+% ax = axesm('lambert', ...
+%     'MapLatLimit', [41 81], ...
+%     'MapLonLimit', [-142 -52], ...
+%     'Origin', [0 -90 0], ...
+%     'FLatLimit', [], ...              % Removes curved wedge frame
+%     'FLonLimit', [], ... 
+%     'Frame', 'on', ...
+%     'FLineWidth',2,...
+%     'Grid', 'on', ...
+%     'MeridianLabel', 'on', ...
+%     'ParallelLabel', 'on', ...
+%     'MLabelParallel', 'south', ...
+%     'PLabelMeridian', 'east', ...
+%     'GColor', [0.8 0.8 0.8], ...
+%     'GLineStyle', ':');
+% hold on;
+
+% 3. Load and plot national boundaries
+% shpFile = 'ne_50m_admin_0_countries.shp';
+try 
+    % Read shapefile into a R2024a geospatial table
+    shpPath = fullfile(outputFolder, shpFile);
+    countries = readgeotable(shpPath);
+    
+    % Plot neighbouring countries (use geoshow for axesm maps)
+    geoshow(ax, countries, 'FaceColor', RGB_lightgrey, 'EdgeColor', 'none', 'LineWidth', 0.5);
+    % geoshow(ax, countries, 'FaceColor', [0.93 0.93 0.91], 'EdgeColor', [0.55 0.55 0.55], 'LineWidth', 0.5);
+    
+    % Highlight Canada specifically
+    canada = countries(strcmp(countries.ADMIN, 'Canada'), :);
+    geoshow(ax, canada, 'FaceColor', RGB_midgrey, 'EdgeColor', [0.55 0.55 0.55], 'LineWidth', 0.8);
+    % geoshow(ax, canada, 'FaceColor', [0.85 0.91 0.86], 'EdgeColor', [0.2 0.2 0.2], 'LineWidth', 1);
+
+catch ME
+    % Display the actual error message so you can see what failed
+    warning('Shapefile failed to load: %s', ME.message);
+    
+    % Offline fallback using geoshow
+    land = readgeotable('landareas.shp');
+    usa = readgeotable('usastatehi.shp');
+    geoshow(ax, land, 'FaceColor', [0.85 0.91 0.86], 'EdgeColor', [0.2 0.2 0.2], 'LineWidth', 1.1);
+    geoshow(ax, usa, 'FaceColor', [0.93 0.93 0.91], 'EdgeColor', [0.55 0.55 0.55], 'LineWidth', 0.8);
+end
+
+%------------------------------------------------------------------------
+% plotting for CFI proposal
+%------------------------------------------------------------------------
+
+% find intersection for Ameriflux sites + active
+
+% registered on Ameriflux + Fluxnet + INactive
+common_inds = intersect(ind_Ameriflux_Fluxnet,ind_inactiveSites);
+h6 = plotm(t.Latitude_degrees_(common_inds),t.Longitude_degrees_(common_inds),'o','MarkerSize',8,...
+    'MarkerEdgeColor',blue,'MarkerFaceColor','white','LineWidth',2.5);
+
+% registered on Ameriflux + Fluxnet + active
+common_inds = intersect(ind_Ameriflux_Fluxnet,ind_activeSites);
+h5 = plotm(t.Latitude_degrees_(common_inds),t.Longitude_degrees_(common_inds),'o','MarkerSize',8,...
+    'MarkerEdgeColor',black,'MarkerFaceColor',blue,'LineWidth',0.8);
+
+% registered on Ameriflux + NO Fluxnet + INactive
+common_inds = intersect(ind_Ameriflux_noFluxnet,ind_inactiveSites);
+h4 = plotm(t.Latitude_degrees_(common_inds),t.Longitude_degrees_(common_inds),'square','MarkerSize',8,...
+    'MarkerEdgeColor',green,'MarkerFaceColor','white','LineWidth',2);
+
+% registered on Ameriflux + NO Fluxnet + active
+common_inds = intersect(ind_Ameriflux_noFluxnet,ind_activeSites);
+h3 = plotm(t.Latitude_degrees_(common_inds),t.Longitude_degrees_(common_inds),'square','MarkerSize',8,...
+    'MarkerEdgeColor',black,'MarkerFaceColor',green,'LineWidth',0.8);
+
+% NOT registered on Ameriflux + INactive
+common_inds = intersect(ind_nonAmeriflux,ind_inactiveSites);
+h2 = plotm(t.Latitude_degrees_(common_inds),t.Longitude_degrees_(common_inds),'^','MarkerSize',8,...
+    'MarkerEdgeColor','#FF8800','MarkerFaceColor','white','LineWidth',2);
+
+% NOT registered on Ameriflux + active
+common_inds = intersect(ind_nonAmeriflux,ind_activeSites);
+h1 = plotm(t.Latitude_degrees_(common_inds),t.Longitude_degrees_(common_inds),'^','MarkerSize',8,...
+    'MarkerEdgeColor',black,'MarkerFaceColor','#FF8800','LineWidth',0.8);
+
+% legend and labels
+set(h1,'linestyle','none')
+set(h2,'linestyle','none')
+set(h3,'linestyle','none')
+set(h4,'linestyle','none')
+set(h5,'linestyle','none')
+set(h6,'linestyle','none')
+legend([h1 h3 h5 h6],{['Not registered on Ameriflux (' num2str(n_nonAmeriflux_WithCoords) ')'],...
+    ['On Ameriflux, no FLUXNET product (' num2str(n_Ameriflux_noFluxnet) ')'],...
+    ['On Ameriflux, FLUXNET-processed (' num2str(n_Ameriflux_Fluxnet) ')'],...
+    'Hollow: inactive sites'},...
+    'FontSize',14,'Location','northeast',...
+    'Color', [1 1 1 0.85], ...   % Soft off-white background
+    'EdgeColor', [0.4 0.4 0.4], ...   % Crisp border line
+    'TextColor', [0.1 0.1 0.1])   % Dark grey text)
+
+n_total_WithCoords = n_Ameriflux_WithCoords + n_nonAmeriflux_WithCoords;
+str = sprintf('%d sites with known coordinates', n_total_WithCoords);
+
+% Place in the bottom-left corner of the map frame
+text(0.65, 0.82, str, ...
+    'Units', 'normalized', ...
+    'FontSize', 11, ...
+    'FontWeight', 'bold', ...
+    'Color', [0.15 0.15 0.15], ...
+    'EdgeColor', 'none', ...
+    'Margin', 6);
+% % for plot with lat lon grid
+% text(0.03, 0.79, str, ...
+%     'Units', 'normalized', ...
+%     'FontSize', 11, ...
+%     'FontWeight', 'bold', ...
+%     'Color', [0.15 0.15 0.15], ...
+%     'EdgeColor', 'none', ...
+%     'Margin', 6);
+    % 'BackgroundColor', [1 1 1 0.85], ... % Semi-transparent white box
+
+% Clean up axes and add title
+tightmap;
+
+% Crop out excess Pacific/Atlantic ocean using projected x-y limits
+xlim([-0.39 0.38]);   % Decrease left number (e.g., -0.38) to crop more Pacific Ocean
+ylim([0.69 1.46]);    % Adjust bottom/top cropping as needed
+
+% Keep the rectangular frame border visible around the cropped map
+set(gca, 'Visible', 'on', 'XTick', [], 'YTick', [], 'Box', 'on', 'LineWidth', 1.5);
+
+% set(gca, 'Visible', 'off');
+% title('Canadian Coordinates (Lambert Conformal Conic)', 'FontSize', 14, 'FontWeight', 'bold');
+
+saveplot = 0;   % 0 = no, 1 = yes
+
+if saveplot == 1
+    filetext = 'Fig4_CFI_CanadianFluxSites_Map_NoGrid';
+    saveplotpath = fullfile(fpath, 'SiteSummary','Full_proposal_Nov2026',filetext);
+    type = 'png';
+    im_res = 300;
+    str_save = ['print -d' type ' -r' num2str(im_res) ' ' saveplotpath '.' type];
+    eval(str_save);
+end
+
+%% 4. (FIGURE 5) Find:
+%   (a) Ecosystems type and reported operating status;
+%   (b) Data visibility and gas species coverage.
+
+SiteVegetation = t.VegetationDescription_IGBP_;    % Ameriflux + self-reported
+SiteVegetationShort = t.VegetationAbbreviation_IGBP_;    % Ameriflux + self-reported
+
+classes = unique(SiteVegetation);   % unique long names
+classesShort = unique(SiteVegetationShort); % unique abbreviations (should be the same number as long names!)
+
+% find number of unknown/unreported and their indices in main table
+ecoUnknown = cellfun(@isempty,SiteVegetationShort);
+n_ecoUnknown = sum(ecoUnknown) - 2;    % subtract 2 for the subheaders in column 1 (siteID)
+ind_ecoUnknown = find(ecoUnknown);     % includes indices for rows with subheaders in column 1 (siteID)
+ind = find(strcmp(t.AmerifluxSiteID,'Sites likely not registered on Ameriflux'));   % identify index dividing Ameriflux and non-Ameriflux sites in spreadsheet
+ind_remove = find(ind_ecoUnknown == ind);
+ind_ecoUnknown(ind_remove) = [];
+ind_ecoUnknown(1) = [];
+
+% remove empty cells (not reported and extra subheader rows), dealt with above
+classes(cellfun(@isempty,classes)) = [];
+classesShort(cellfun(@isempty,classesShort)) = [];
+
+percentVeg = NaN(length(classes),1);
+numPerClass = NaN(length(classes),1);
+classShortName = cell(length(classes),1);
+
+total = 0;
+for i = 1:length(classesShort)
+    classShort = classesShort{i};
+    numPerClass(i) = length(find(strcmp(classShort,SiteVegetationShort)));
+    percentVeg(i) = (numPerClass(i)/length(SiteVegetationShort))*100;
+
+    % get shortened class name
+    tmp = split(classes{i},':');
+    classShortName{i} = strcat(tmp{1},[' (' num2str(numPerClass(i)) ')']);
+end
+
+n_ecoKnown = sum(numPerClass);
+% check
+% n_total = n_ecoKnown + n_ecoUnknown;
+
+percentVeg_rounded = round(percentVeg);
+ecoSystems = {'Barren / sparse','Cropland','Shrubland','Deciduous forest','Evergreen needleleaf forest','Grassland','Mixed forest','Urban','Open water / lake','Wetland'}';
+mycolors = ["#8C1A66", "#D966B3", "#78AB30", "#C7E0A3", "#5B731F", "#B9E67D", "#954535", "#C19A6B",'#BEBEBE','#005B96']'; % combine shrublands or add colour!!
+% mycolors = ["#8C1A66", "#D966B3", "#78AB30", "#C7E0A3", "#5B731F", "#B9E67D", "#954535", "#C19A6B",'#005B96']'; % old, does not include URB (urban)
+
+% manually combine open and closed shrublands (for now)
+numPerClass(3) = numPerClass(3)+numPerClass(8);
+numPerClass(8) = [];
+classesShort{3} = 'SHR';
+classesShort(8,:) = [];
+
+T = table(numPerClass,classesShort,ecoSystems);
+% T = table(numPerClass,classesShort,classShortName);%,mycolors);
+T_sort = sortrows(T,1,'descend');
+
+% add the "ecosystem not reported or known" row
+T_sort.numPerClass(end+1) = n_ecoUnknown;
+T_sort.classesShort{11} = 'NAN';
+T_sort.ecoSystems{11} = 'Not recorded';
+
+
+% WET
+ind_WET = find(strcmp('WET',SiteVegetationShort));
+n_WET_active = length(intersect(ind_WET,ind_activeSites));
+n_WET_inactive = length(intersect(ind_WET,ind_inactiveSites));
+n_WET_unknown = length(intersect(ind_WET,ind_activeUnknown));
+% ENF
+ind_ENF = find(strcmp('ENF',SiteVegetationShort));
+n_ENF_active = length(intersect(ind_ENF,ind_activeSites));
+n_ENF_inactive = length(intersect(ind_ENF,ind_inactiveSites));
+n_ENF_unknown = length(intersect(ind_ENF,ind_activeUnknown));
+% CRO
+ind_CRO = find(strcmp('CRO',SiteVegetationShort));
+n_CRO_active = length(intersect(ind_CRO,ind_activeSites));
+n_CRO_inactive = length(intersect(ind_CRO,ind_inactiveSites));
+n_CRO_unknown = length(intersect(ind_CRO,ind_activeUnknown));
+% SHR = OSH + CSH
+ind_OSH = find(strcmp('OSH',SiteVegetationShort));
+ind_CSH = find(strcmp('CSH',SiteVegetationShort));
+ind_SHR = union(ind_OSH,ind_CSH);
+n_SHR_active = length(intersect(ind_SHR,ind_activeSites));
+n_SHR_inactive = length(intersect(ind_SHR,ind_inactiveSites));
+n_SHR_unknown = length(intersect(ind_SHR,ind_activeUnknown));
+% WAT
+ind_WAT = find(strcmp('WAT',SiteVegetationShort));
+n_WAT_active = length(intersect(ind_WAT,ind_activeSites));
+n_WAT_inactive = length(intersect(ind_WAT,ind_inactiveSites));
+n_WAT_unknown = length(intersect(ind_WAT,ind_activeUnknown));
+% GRA
+ind_GRA = find(strcmp('GRA',SiteVegetationShort));
+n_GRA_active = length(intersect(ind_GRA,ind_activeSites));
+n_GRA_inactive = length(intersect(ind_GRA,ind_inactiveSites));
+n_GRA_unknown = length(intersect(ind_GRA,ind_activeUnknown));
+% DBF
+ind_DBF = find(strcmp('DBF',SiteVegetationShort));
+n_DBF_active = length(intersect(ind_DBF,ind_activeSites));
+n_DBF_inactive = length(intersect(ind_DBF,ind_inactiveSites));
+n_DBF_unknown = length(intersect(ind_DBF,ind_activeUnknown));
+% MF
+ind_MF = find(strcmp('MF',SiteVegetationShort));
+n_MF_active = length(intersect(ind_MF,ind_activeSites));
+n_MF_inactive = length(intersect(ind_MF,ind_inactiveSites));
+n_MF_unknown = length(intersect(ind_MF,ind_activeUnknown));
+% BSV
+ind_BSV = find(strcmp('BSV',SiteVegetationShort));
+n_BSV_active = length(intersect(ind_BSV,ind_activeSites));
+n_BSV_inactive = length(intersect(ind_BSV,ind_inactiveSites));
+n_BSV_unknown = length(intersect(ind_BSV,ind_activeUnknown));
+% URB
+ind_URB = find(strcmp('URB',SiteVegetationShort));
+n_URB_active = length(intersect(ind_URB,ind_activeSites));
+n_URB_inactive = length(intersect(ind_URB,ind_inactiveSites));
+n_URB_unknown = length(intersect(ind_URB,ind_activeUnknown));
+% NAN
+ind_NAN = ind_ecoUnknown;
+n_NAN_active = length(intersect(ind_NAN,ind_activeSites));
+n_NAN_inactive = length(intersect(ind_NAN,ind_inactiveSites));
+n_NAN_unknown = length(intersect(ind_NAN,ind_activeUnknown));
+
+% each row makes up main category/bar: ecosystem
+% each column divides bar into segments based on:
+% Active, Inactive, Unknown
+allData = [n_WET_active, n_WET_inactive, n_WET_unknown;
+           n_ENF_active, n_ENF_inactive, n_ENF_unknown;
+           n_CRO_active, n_CRO_inactive, n_CRO_unknown;
+           n_SHR_active, n_SHR_inactive, n_SHR_unknown;
+           n_WAT_active, n_WAT_inactive, n_WAT_unknown;
+           n_GRA_active, n_GRA_inactive, n_GRA_unknown;
+           n_DBF_active, n_DBF_inactive, n_DBF_unknown;
+           n_MF_active, n_MF_inactive, n_MF_unknown;
+           n_BSV_active, n_BSV_inactive, n_BSV_unknown;
+           n_URB_active, n_URB_inactive, n_URB_unknown;
+           n_NAN_active, n_NAN_inactive, n_NAN_unknown];
+
+fig = figure(101);
+clf(fig);
+set(fig, 'Color', 'w', 'Position', [100 100 900 600]);
+
+% Create the stacked bar chart
+b = barh(categorical(T_sort.ecoSystems, T_sort.ecoSystems), allData, 'stacked', 'BarWidth', 0.8);
+
+% 4. Style each segment with custom colours
+colors = {'#005B96', '#78AB30', '#C19A6B'};
+for k = 1:length(b)
+    b(k).FaceColor = colors{k};
+    b(k).EdgeColor = 'w';       % Clean white divider between segments
+    b(k).LineWidth = 1.2;
+end
+
+% 5. Add labels, grid, and legend
+xlabel('Number of Flux Tower Sites', 'FontSize', 14); %, 'FontWeight', 'bold');
+title('(a) Ecosystem Type and Operating Status', 'FontSize', 16, 'FontWeight', 'bold');
+
+grid on;
+set(gca, 'YDir', 'reverse');
+set(gca, 'YGrid', 'off', 'XGrid', 'on', 'Box', 'off');
+
+ax = gca;
+ax.FontSize = 14;              % Sets X-axis tick font size
+ax.YAxis.FontSize = 15;        % Increases category label font size independently
+% ax.YAxis.FontWeight = 'bold';  % Optional: makes category names bold
+
+% add numbers to bars
+x_tips = b(end).YEndPoints;    % In barh, YEndPoints stores the horizontal tip coordinates
+y_tips = b(end).XEndPoints;    % In barh, XEndPoints stores the vertical bar positions
+
+text(x_tips + 1.0, y_tips, string(T_sort.numPerClass), ...
+    'VerticalAlignment', 'middle', ...
+    'HorizontalAlignment', 'left', ...
+    'FontSize', 15, ...
+    'Color', [0.15 0.15 0.15]);
+    % 'FontWeight', 'bold', ...
+    % 'Color', [0.15 0.15 0.15]);
+
+% Add slight padding to X-axis so the rightmost total label isn't clipped
+xlim([0, max(T_sort.numPerClass) * 1.12]);
+
+legend({'Active', 'Inactive', 'Status unknown'}, ...
+    'Location', 'southeast', ...
+    'Color', [0.98 0.98 0.98], ...
+    'EdgeColor', [0.7 0.7 0.7], ...
+    'FontSize', 16);
